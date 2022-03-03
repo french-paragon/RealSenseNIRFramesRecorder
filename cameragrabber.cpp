@@ -19,7 +19,9 @@ void CameraGrabber::setConfig(const rs2::config &config)
 {
 	_config = config;
 
-	_config.enable_all_streams();
+	_config.enable_stream(rs2_stream::RS2_STREAM_INFRARED, 1, 1280, 800, rs2_format::RS2_FORMAT_Y16, 15);
+	_config.enable_stream(rs2_stream::RS2_STREAM_INFRARED, 2, 1280, 800, rs2_format::RS2_FORMAT_Y16, 15);
+	//_config.enable_all_streams();
 
 }
 
@@ -42,7 +44,7 @@ void CameraGrabber::run () {
 			break;
 		}
 
-		QImage frameLeft = realsenseFrameToQImage(frames.get_infrared_frame(0));
+		QImage frameLeft = realsenseFrameToQImage(frames.get_infrared_frame(1));
 		QImage frameRight = realsenseFrameToQImage(frames.get_infrared_frame(2));
 
 		emit framesReady(frameLeft, frameRight);

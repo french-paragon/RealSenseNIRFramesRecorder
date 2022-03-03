@@ -9,6 +9,7 @@
 #include <QStandardPaths>
 #include <QFileDialog>
 #include <QDateTime>
+#include <QKeyEvent>
 
 MainWindow::MainWindow(QWidget *parent)
 	: QMainWindow(parent)
@@ -45,6 +46,8 @@ MainWindow::MainWindow(QWidget *parent)
 	ui->exportDirField->setText(_imgFolder.path());
 	connect(ui->chooseDirButton, &QPushButton::clicked, this, &MainWindow::selectExportDir);
 
+	setFocusPolicy(Qt::StrongFocus);
+
 }
 
 MainWindow::~MainWindow()
@@ -52,6 +55,14 @@ MainWindow::~MainWindow()
 	delete ui;
 	delete _pxmLeft;
 	delete _pxmRight;
+}
+
+void MainWindow::keyPressEvent(QKeyEvent *event) {
+	if (event->key() == Qt::Key_Space) {
+		onShot();
+	} else {
+		QMainWindow::keyPressEvent(event);
+	}
 }
 
 void MainWindow::receiveFrames(QImage frameLeft, QImage frameRight) {
@@ -73,8 +84,10 @@ void MainWindow::receiveFrames(QImage frameLeft, QImage frameRight) {
 		ui->actionShot->setEnabled(true);
 
 	} else {
-		_pxmLeft->setPixmap(QPixmap::fromImage(frameLeft));
-		_pxmRight->setPixmap(QPixmap::fromImage(frameRight));
+		frameLeft.toPixelFormat(QImage::Format_Grayscale8);
+		frameRight.toPixelFormat(QImage::Format_Grayscale8);
+		_pxmLeft->setPixmap(QPixmap::fromImage(frameLeft).scaled(ui->imgLeftView->width(),ui->imgLeftView->height(),Qt::KeepAspectRatio));
+		_pxmRight->setPixmap(QPixmap::fromImage(frameRight).scaled(ui->imgRightView->width(),ui->imgRightView->height(),Qt::KeepAspectRatio));
 	}
 
 }

@@ -26,6 +26,8 @@ private:
 
 protected:
 
+	void keyPressEvent(QKeyEvent *event) override;
+
 	void onCameraLaunched();
 	void onCameraPaused();
 	void onShot();
