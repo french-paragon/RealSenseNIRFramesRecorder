@@ -50,3 +50,6 @@ else()
 endif()
 
 target_link_libraries(RealSenseNirFramesRecorder PRIVATE Qt${QT_VERSION_MAJOR}::Widgets realsense2)
+
+install (FILES desktops/RealSenseNirFramesRecorder.desktop DESTINATION usr/share/applications)
+install (TARGETS RealSenseNirFramesRecorder DESTINATION usr/bin)
