@@ -10,6 +10,10 @@
 #include <QFileDialog>
 #include <QDateTime>
 #include <QKeyEvent>
+#include <QDebug>
+
+#include "cameraslist.h"
+#include "cameraapplication.h"
 
 MainWindow::MainWindow(QWidget *parent)
 	: QMainWindow(parent)
@@ -33,17 +37,13 @@ MainWindow::MainWindow(QWidget *parent)
 	ui->imgLeftView->setScene(_sceneImgLeft);
 	ui->imgRightView->setScene(_sceneImgRight);
 
-	_lst = new CamerasList(this);
-	_lst->refreshCamerasList();
-	ui->camerasListView->setModel(_lst);
+	_cam_lst = nullptr;
 
-	connect(ui->refreshButton, &QPushButton::clicked, _lst, &CamerasList::refreshCamerasList);
 	connect(ui->actionStart_acquisition, &QAction::triggered, this, &MainWindow::onCameraLaunched);
 	connect(ui->actionStop_camera, &QAction::triggered, this, &MainWindow::onCameraPaused);
 	connect(ui->actionShot, &QAction::triggered, this, &MainWindow::onShot);
 
-	_imgFolder.setPath(QStandardPaths::standardLocations(QStandardPaths::PicturesLocation).first());
-	ui->exportDirField->setText(_imgFolder.path());
+	ui->exportDirField->setText(CameraApplication::GetCameraApp()->exportDir());
 	connect(ui->chooseDirButton, &QPushButton::clicked, this, &MainWindow::selectExportDir);
 
 	setFocusPolicy(Qt::StrongFocus);
@@ -57,39 +57,33 @@ MainWindow::~MainWindow()
 	delete _pxmRight;
 }
 
+void MainWindow::setFrames(ImageFrame frameLeft, ImageFrame frameRight) {
+
+	QPixmap pxLeft = imageFrameToQPixmap(frameLeft);
+	QPixmap pxRight = imageFrameToQPixmap(frameRight);
+
+	_pxmLeft->setPixmap(pxLeft);
+	_pxmRight->setPixmap(pxRight);
+
+}
+
+void MainWindow::setCameraList(CamerasList* lst) {
+
+	if (_cam_lst != nullptr) {
+		disconnect(ui->refreshButton, &QPushButton::clicked, _cam_lst, &CamerasList::refreshCamerasList);
+	}
+
+	_cam_lst = lst;
+	connect(ui->refreshButton, &QPushButton::clicked, lst, &CamerasList::refreshCamerasList);
+	ui->camerasListView->setModel(lst);
+}
+
 void MainWindow::keyPressEvent(QKeyEvent *event) {
 	if (event->key() == Qt::Key_Space) {
 		onShot();
 	} else {
 		QMainWindow::keyPressEvent(event);
 	}
-}
-
-void MainWindow::receiveFrames(QImage frameLeft, QImage frameRight) {
-
-	if (_saveImgs) {
-		QString timestamp = QDateTime::currentDateTime().toString("yyyy_MM_hh_mm_ss_zz");
-		QString leftFramePath = _imgFolder.filePath(timestamp + "_left.png");
-		QString rightFramePath = _imgFolder.filePath(timestamp + "_right.png");
-
-		frameLeft.save(leftFramePath);
-		frameRight.save(rightFramePath);
-
-		_pxmLeft->setPixmap(QPixmap());
-		_pxmRight->setPixmap(QPixmap());
-
-		_saveAcessControl.lock();
-		_saveImgs = false;
-		_saveAcessControl.unlock();
-		ui->actionShot->setEnabled(true);
-
-	} else {
-		frameLeft.toPixelFormat(QImage::Format_Grayscale8);
-		frameRight.toPixelFormat(QImage::Format_Grayscale8);
-		_pxmLeft->setPixmap(QPixmap::fromImage(frameLeft).scaled(ui->imgLeftView->width(),ui->imgLeftView->height(),Qt::KeepAspectRatio));
-		_pxmRight->setPixmap(QPixmap::fromImage(frameRight).scaled(ui->imgRightView->width(),ui->imgRightView->height(),Qt::KeepAspectRatio));
-	}
-
 }
 
 void MainWindow::onCameraLaunched() {
@@ -100,30 +94,18 @@ void MainWindow::onCameraLaunched() {
 
 	int row = ui->camerasListView->currentIndex().row();
 
-	std::string sn = _lst->serialNumber(row);
-
-	rs2::config config;
-	config.enable_device(sn);
-
-	_img_grab = new CameraGrabber(this);
-	_img_grab->setConfig(config);
-	connect(_img_grab, &CameraGrabber::framesReady, this, &MainWindow::receiveFrames);
-	connect(_img_grab, &CameraGrabber::acquisitionEndedWithError, this, &MainWindow::showAcquisitionError);
-
-	_img_grab->start();
+	CameraApplication::GetCameraApp()->startRecording(row);
 
 }
 void MainWindow::onCameraPaused() {
 	endGrabber();
 }
 void MainWindow::onShot() {
-	_saveAcessControl.lock();
-	_saveImgs = true;
-	_saveAcessControl.unlock();
-	ui->actionShot->setEnabled(false);
+
+	CameraApplication::GetCameraApp()->saveFrames(1);
 }
 
-void MainWindow::showAcquisitionError(QString txt) {
+void MainWindow::showErrorMessage(QString txt) {
 	QMessageBox::critical(this, "An error happened during acquisition", txt);
 	endGrabber();
 }
@@ -133,23 +115,61 @@ void MainWindow::endGrabber() {
 	ui->actionStop_camera->setEnabled(false);
 	ui->actionShot->setEnabled(false);
 
-	_img_grab->finish();
-	_img_grab->wait();
-	disconnect(_img_grab, &CameraGrabber::framesReady, this, &MainWindow::receiveFrames);
-	disconnect(_img_grab, &CameraGrabber::acquisitionEndedWithError, this, &MainWindow::showAcquisitionError);
-	_img_grab->deleteLater();
-
-	_img_grab = nullptr;
+	CameraApplication::GetCameraApp()->stopRecording();
 
 }
 
 void MainWindow::selectExportDir() {
-	QString dir = QFileDialog::getExistingDirectory(this, "Get image export directory", _imgFolder.path());
+	QString dir = QFileDialog::getExistingDirectory(this, "Get image export directory", CameraApplication::GetCameraApp()->exportDir());
 
 	if (!dir.isEmpty()) {
 		if (QDir(dir).exists()) {
-			_imgFolder.setPath(dir);
+			CameraApplication::GetCameraApp()->setExportDir(dir);
 			ui->exportDirField->setText(dir);
 		}
 	}
+}
+
+QPixmap imageFrameToQPixmap(const ImageFrame &f)
+{
+
+	int w = f.width();
+	int h = f.height();
+
+	if (f.imgType() == ImageFrame::GRAY_8) {
+		QImage ret((uchar*) &f.grayscale8()->atUnchecked(0,0), w, h, w, QImage::Format_Grayscale8);
+		return QPixmap::fromImage(ret);
+	}
+
+	if (f.imgType() == ImageFrame::GRAY_16) {
+		Multidim::Array<uint16_t, 2>* original = f.grayscale16();
+		Multidim::Array<uint8_t, 2> grayMap(original->shape(), original->strides());
+
+		qint64 mean = 0;
+		for (int i = 0; i < original->shape()[0]; i++) {
+			for (int j = 0; j < original->shape()[1]; j++) {
+				grayMap.atUnchecked(i,j) = static_cast<uint8_t>(original->valueUnchecked(i,j)/256);
+				mean += grayMap.atUnchecked(i,j);
+			}
+		}
+
+		QImage ret((uchar*) &grayMap.atUnchecked(0,0), w, h, w, QImage::Format_Grayscale8);
+		QPixmap px = QPixmap::fromImage(ret.copy());
+		return px.scaled(w/2,h/2);
+	}
+
+	if (f.imgType() == ImageFrame::RGBA_8) {
+
+		if (f.rgba8()->shape()[2] == 3) { //RGB
+			QImage ret((uchar*) &f.rgba8()->atUnchecked(0,0,0), w, h, w*3, QImage::Format_RGB888);
+			return QPixmap::fromImage(ret);
+		}
+
+		if (f.rgba8()->shape()[2] == 4) { //RGBA
+			QImage ret((uchar*) &f.rgba8()->atUnchecked(0,0,0), w, h, w*4, QImage::Format_RGBA8888);
+			return QPixmap::fromImage(ret);
+		}
+	}
+
+	throw std::runtime_error("Unsupported frame format !");
 }

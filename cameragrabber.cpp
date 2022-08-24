@@ -44,8 +44,11 @@ void CameraGrabber::run () {
 			break;
 		}
 
-		QImage frameLeft = realsenseFrameToQImage(frames.get_infrared_frame(1));
-		QImage frameRight = realsenseFrameToQImage(frames.get_infrared_frame(2));
+		rs2::frame fl = frames.get_infrared_frame(1);
+		rs2::frame fr = frames.get_infrared_frame(2);
+
+		ImageFrame frameLeft = realsenseFrameToImageFrame(fl);
+		ImageFrame frameRight = realsenseFrameToImageFrame(fr);
 
 		emit framesReady(frameLeft, frameRight);
 	}
@@ -56,27 +59,38 @@ void CameraGrabber::finish() {
 	_interruptionMutex.unlock();
 }
 
-QImage realsenseFrameToQImage(const rs2::frame &f)
-{
+ImageFrame realsenseFrameToImageFrame(const rs2::frame &f) {
+
 	using namespace rs2;
 
 	auto vf = f.as<video_frame>();
 	const int w = vf.get_width();
 	const int h = vf.get_height();
 
-	if (f.get_profile().format() == RS2_FORMAT_RGB8)
+	rs2_format format = f.get_profile().format();
+
+	if (format == RS2_FORMAT_RGB8)
 	{
-		QImage ret((uchar*) f.get_data(), w, h, w*3, QImage::Format_RGB888);
+		ImageFrame ret((uint8_t*) f.get_data(),
+					   Multidim::Array<uint8_t,3>::ShapeBlock{h,w, 3},
+					   Multidim::Array<uint8_t,3>::ShapeBlock{3*w,3,1},
+					   false);
 		return ret;
 	}
-	else if (f.get_profile().format() == RS2_FORMAT_Y8)
+	else if (format == RS2_FORMAT_Y8)
 	{
-		QImage ret((uchar*) f.get_data(), w, h, w, QImage::Format_Grayscale8);
+		ImageFrame ret((uint8_t*) f.get_data(),
+					   Multidim::Array<uint8_t,2>::ShapeBlock{h,w},
+					   Multidim::Array<uint8_t,2>::ShapeBlock{w,1},
+					   false);
 		return ret;
 	}
-	else if (f.get_profile().format() == RS2_FORMAT_Y16)
+	else if (format == RS2_FORMAT_Y16)
 	{
-		QImage ret((uchar*) f.get_data(), w, h, w*2, QImage::Format_Grayscale16);
+		ImageFrame ret((uint16_t*) f.get_data(),
+					   Multidim::Array<uint16_t,2>::ShapeBlock{h,w},
+					   Multidim::Array<uint16_t,2>::ShapeBlock{w,1},
+					   false);
 		return ret;
 	}
 

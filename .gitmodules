@@ -1,0 +1,3 @@
+[submodule "modules/LibStevi"]
+	path = modules/LibStevi
+	url = https://github.com/french-paragon/LibStevi.git

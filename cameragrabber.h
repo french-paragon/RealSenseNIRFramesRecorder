@@ -3,9 +3,10 @@
 
 #include <QThread>
 #include <QMutex>
-#include <QImage>
 
 #include <librealsense2/rs.hpp>
+
+#include "./imageframe.h"
 
 class CameraGrabber : public QThread
 {
@@ -22,7 +23,7 @@ public:
 
 signals:
 
-	void framesReady(QImage frameLeft, QImage frameRight);
+	void framesReady(ImageFrame frameLeft, ImageFrame frameRight);
 	void acquisitionEndedWithError(QString error);
 
 protected:
@@ -34,6 +35,6 @@ protected:
 
 };
 
-QImage realsenseFrameToQImage(const rs2::frame &f);
+ImageFrame realsenseFrameToImageFrame(const rs2::frame &f);
 
 #endif // CAMERAGRABBER_H

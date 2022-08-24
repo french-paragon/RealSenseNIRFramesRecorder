@@ -2,10 +2,10 @@
 #define MAINWINDOW_H
 
 #include <QMainWindow>
-#include "cameraslist.h"
-#include "cameragrabber.h"
 
 #include <QDir>
+
+#include "./imageframe.h"
 
 class QGraphicsScene;
 class QGraphicsPixmapItem;
@@ -14,6 +14,8 @@ QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
 QT_END_NAMESPACE
 
+class CamerasList;
+
 class MainWindow : public QMainWindow
 {
 	Q_OBJECT
@@ -21,6 +23,12 @@ class MainWindow : public QMainWindow
 public:
 	MainWindow(QWidget *parent = nullptr);
 	~MainWindow();
+
+	void setFrames(ImageFrame frameLeft, ImageFrame frameRight);
+
+	void setCameraList(CamerasList* lst);
+
+	void showErrorMessage(QString txt);
 
 private:
 
@@ -32,18 +40,11 @@ protected:
 	void onCameraPaused();
 	void onShot();
 
-	void showAcquisitionError(QString txt);
 	void endGrabber();
-
-	void receiveFrames(QImage frameLeft, QImage frameRight);
 
 	void selectExportDir();
 
 	Ui::MainWindow *ui;
-
-	CamerasList* _lst;
-
-	CameraGrabber* _img_grab;
 
 	QGraphicsScene* _sceneImgLeft;
 	QGraphicsPixmapItem* _pxmLeft;
@@ -51,9 +52,10 @@ protected:
 	QGraphicsScene* _sceneImgRight;
 	QGraphicsPixmapItem* _pxmRight;
 
-	QDir _imgFolder;
-	QMutex _saveAcessControl;
-	bool _saveImgs;
+	CamerasList* _cam_lst;
 
 };
+
+QPixmap imageFrameToQPixmap(const ImageFrame &f);
+
 #endif // MAINWINDOW_H
