@@ -13,11 +13,14 @@ public:
 
 	static const QString exit_cmd;
 	static const QString set_folder_cmd;
+	static const QString set_camera_cmd;
 	static const QString start_record_cmd;
 	static const QString record_cmd;
 	static const QString stop_record_cmd;
 	static const QString list_cams_cmd;
+	static const QString list_connections_cmd;
 	static const QString remote_connect_cmd;
+	static const QString remote_ping_cmd;
 	static const QString remote_disconnect_cmd;
 	static const QString help_cmd;
 
@@ -30,11 +33,15 @@ Q_SIGNALS:
 
 	void exitTriggered(int status = 0);
 	void setFolderTriggered(QString folder);
+	void setCameraTriggered(int camRow);
+	void startRecordSessionTriggered();
 	void startRecordTriggered(int camRow);
 	void saveImgsTriggered(int nImgs);
 	void stopRecordTriggered();
 	void listCamerasTriggered();
+	void listConnectionsTriggered();
 	void remoteConnectionTriggered(QString host);
+	void remotePingTriggered(int remoteRow);
 	void remoteDisconnectionTriggered(QString host);
 	void helpTriggered();
 	void InvalidTriggered(QString cmd);

@@ -14,6 +14,7 @@ class ConsoleWatcher;
 class CamerasList;
 class CameraGrabber;
 class RemoteSyncServer;
+class RemoteConnectionList;
 
 class CameraApplication : public QObject
 {
@@ -31,9 +32,18 @@ public:
 	void setExportDir(QString const& outPath);
 	QString exportDir();
 
+	void setPrefferedCamera(int preffered);
+	int prefferedCamera() const;
+
+	void startRecordSession();
 	void startRecording(int row);
 	void saveFrames(int nFrames);
+	void saveLocalFrames(int nFrames);
+	void stopRecordSession();
 	void stopRecording();
+
+	void connectToRemote(QString host);
+	void disconnectFromRemote(QString host);
 
 	bool isRecording() const;
 	bool isRecordingToDisk() const;
@@ -42,6 +52,7 @@ Q_SIGNALS:
 
 	void outFolderChanged(QString outFolder);
 	void triggerStopRecording();
+	void prefferedCameraChanged(int camRow);
 
 protected:
 
@@ -61,8 +72,11 @@ protected:
 	bool _isHeadLess;
 	bool _isServer;
 
+	int _prefferedCamera;
 	CamerasList* _lst;
 	CameraGrabber* _img_grab;
+
+	RemoteConnectionList* _remoteConnections;
 
 	QMutex _saveAcessControl;
 

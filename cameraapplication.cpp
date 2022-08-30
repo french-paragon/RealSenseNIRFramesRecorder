@@ -5,6 +5,8 @@
 #include "mainwindow.h"
 #include "consolewatcher.h"
 #include "remotesyncserver.h"
+#include "remotesyncclient.h"
+#include "remoteconnectionlist.h"
 
 #include <QApplication>
 #include <QDateTime>
@@ -35,10 +37,15 @@ CameraApplication::CameraApplication(int &argc, char **argv) :
 		}
 	}
 
+	_img_grab = nullptr;
+
 	_imgFolder.setPath(QStandardPaths::standardLocations(QStandardPaths::PicturesLocation).first());
 
+	_prefferedCamera = 0;
 	_lst = new CamerasList(this);
 	_lst->refreshCamerasList();
+
+	_remoteConnections = new RemoteConnectionList(this);
 
 	_imgsToSave = 0;
 
@@ -76,6 +83,7 @@ int CameraApplication::exec() {
 
 	configureMainWindow();
 	configureConsoleWatcher();
+	configureApplicationServer();
 
 	return _QtApp->exec();
 }
@@ -89,13 +97,13 @@ void CameraApplication::setExportDir(QString const& outPath) {
 
 		if (out.canonicalPath() == _imgFolder.canonicalPath()) {
 			if (_mw == nullptr) {
-				outstream << "Output folder was already " << _imgFolder.canonicalPath() << Qt::endl;
+				outstream << "Output folder was already " << _imgFolder.canonicalPath() << endl;
 			}
 		} else {
 			_imgFolder = out;
 			Q_EMIT outFolderChanged(out.path());
 			if (_mw == nullptr) {
-				outstream << "Output folder set to " << out.path() << Qt::endl;
+				outstream << "Output folder set to " << out.path() << endl;
 			}
 		}
 	} else {
@@ -108,12 +116,40 @@ QString CameraApplication::exportDir() {
 	return _imgFolder.path();
 }
 
-void CameraApplication::startRecording(int row) {
+void CameraApplication::setPrefferedCamera(int preffered) {
+	if (_prefferedCamera != preffered and preffered >= 0 and preffered < _lst->rowCount()) {
+		_prefferedCamera = preffered;
+		Q_EMIT prefferedCameraChanged(preffered);
+	}
+}
+int CameraApplication::prefferedCamera() const {
+	return _prefferedCamera;
+}
 
-	if (row < 0 or row >= _lst->rowCount()) {
+void CameraApplication::startRecordSession() {
+
+	if (_lst->rowCount() > 0) {
+		startRecording(-1);
+	}
+
+	for (int i = 0; i < _remoteConnections->rowCount(); i++) {
+		_remoteConnections->getConnectionAtRow(i)->startRecording(-1);
+	}
+
+}
+
+void CameraApplication::startRecording(int prow) {
+
+	int row = prow;
+
+	if (row < 0) {
+		row = _prefferedCamera;
+	}
+
+	if (row < -1 or row >= _lst->rowCount()) {
 		if (_mw == nullptr) {
 			QTextStream out(stdout);
-			out << "Failed to start recording, non existing camera " << row << Qt::endl;
+			out << "Failed to start recording, non existing camera " << row << endl;
 		}
 
 		return;
@@ -121,7 +157,7 @@ void CameraApplication::startRecording(int row) {
 
 	if (_mw == nullptr) {
 		QTextStream out(stdout);
-		out << "Start recording with camera " << _lst->data(_lst->index(row)).toString() << Qt::endl;
+		out << "Start recording with camera " << _lst->data(_lst->index(row)).toString() << endl;
 	}
 
 	std::string sn = _lst->serialNumber(row);
@@ -138,17 +174,40 @@ void CameraApplication::startRecording(int row) {
 }
 void CameraApplication::saveFrames(int nFrames) {
 
-	if (nFrames > 0) {
-		_saveAcessControl.lock();
-		_imgsToSave += nFrames;
-		_saveAcessControl.unlock();
+	saveLocalFrames(nFrames);
+
+	for (int i = 0; i < _remoteConnections->rowCount(); i++) {
+		_remoteConnections->getConnectionAtRow(i)->saveImagesRecording(nFrames);
 	}
+}
+
+void CameraApplication::saveLocalFrames(int nFrames) {
+
+	if (isRecording()) {
+		if (nFrames > 0) {
+			_saveAcessControl.lock();
+			_imgsToSave += nFrames;
+			_saveAcessControl.unlock();
+		}
+	}
+}
+
+void CameraApplication::stopRecordSession() {
+
+	if (isRecording()) {
+		stopRecording();
+	}
+
+	for (int i = 0; i < _remoteConnections->rowCount(); i++) {
+		_remoteConnections->getConnectionAtRow(i)->stopRecording();
+	}
+
 }
 void CameraApplication::stopRecording() {
 
 	if (_mw == nullptr) {
 		QTextStream out(stdout);
-		out << "Acquisition terminated !" << Qt::endl;
+		out << "Acquisition terminated !" << endl;
 	}
 
 	_img_grab->finish();
@@ -158,6 +217,28 @@ void CameraApplication::stopRecording() {
 	_img_grab->deleteLater();
 
 	_img_grab = nullptr;
+}
+
+void CameraApplication::connectToRemote(QString host) {
+
+	RemoteSyncClient* remote = new RemoteSyncClient(this);
+	bool ok = remote->connectToHost(host, RemoteSyncServer::preferredPort);
+
+	if (ok) {
+		_remoteConnections->addConnection(remote);
+	} else {
+		remote->deleteLater();
+	}
+
+}
+
+void CameraApplication::disconnectFromRemote(QString host) {
+	RemoteSyncClient* remote = _remoteConnections->getConnectionByHost(host);
+
+	if (remote != nullptr) {
+		remote->disconnectFromHost(); //remote connections should delete it, so not need to do it.
+	}
+
 }
 
 bool CameraApplication::isRecording() const {
@@ -208,18 +289,43 @@ void CameraApplication::configureConsoleWatcher() {
 		connect(_cw, &ConsoleWatcher::exitTriggered, _QtApp, &QCoreApplication::exit);
 
 		connect(_cw, &ConsoleWatcher::setFolderTriggered, this, &CameraApplication::setExportDir);
+		connect(_cw, &ConsoleWatcher::setCameraTriggered, this, &CameraApplication::setPrefferedCamera);
 
 		connect(_cw, &ConsoleWatcher::startRecordTriggered, this, &CameraApplication::startRecording);
+		connect(_cw, &ConsoleWatcher::startRecordSessionTriggered, this, &CameraApplication::startRecordSession);
 		connect(_cw, &ConsoleWatcher::saveImgsTriggered, this, &CameraApplication::saveFrames);
-		connect (_cw, &ConsoleWatcher::stopRecordTriggered, this, &CameraApplication::stopRecording);
+		connect (_cw, &ConsoleWatcher::stopRecordTriggered, this, &CameraApplication::stopRecordSession);
 
 		connect (_cw, &ConsoleWatcher::listCamerasTriggered, this, [this] () {
 			QTextStream out(stdout);
 
 			for (int i = 0; i < _lst->rowCount(); i++) {
-				out << "Local cameras:" << Qt::endl;
-				out << "\t" << i << ". " << _lst->data(_lst->index(i)).toString() << Qt::endl;
+				out << "Local cameras:" << endl;
+				out << "\t" << i << ". " << _lst->data(_lst->index(i)).toString() << endl;
 			}
+		});
+
+		connect (_cw, &ConsoleWatcher::listConnectionsTriggered, this, [this] () {
+			QTextStream out(stdout);
+
+			for (int i = 0; i < _remoteConnections->rowCount(); i++) {
+				out << "Connected servers:" << endl;
+				out << "\t" << i << ". " << _remoteConnections->data(_lst->index(i)).toString() << endl;
+			}
+		});
+
+		connect(_cw, &ConsoleWatcher::remoteConnectionTriggered, this, &CameraApplication::connectToRemote);
+		connect(_cw, &ConsoleWatcher::remotePingTriggered, this, [this] (int row) {
+			qDebug() << "checking communication time for: " << row;
+			if (row >= 0 and row < _remoteConnections->rowCount()) {
+				_remoteConnections->getConnectionAtRow(row)->checkConnectionTime();
+			}
+		});
+		connect(_cw, &ConsoleWatcher::remoteDisconnectionTriggered, this, &CameraApplication::disconnectFromRemote);
+
+		connect(_cw, &ConsoleWatcher::InvalidTriggered, this, [this] (QString line) {
+			QString infos = QString("Invalid command entered:\n%1").arg(line);
+			manageAcquisitionError(infos);
 		});
 
 		_cw->run();
@@ -231,14 +337,18 @@ void CameraApplication::configureApplicationServer() {
 	if (_isServer) {
 		_rs = new RemoteSyncServer(this);
 
-
 		connect(_rs, &RemoteSyncServer::setSaveFolder, this, &CameraApplication::setExportDir);
 
 		connect(_rs, &RemoteSyncServer::startRecording, this, &CameraApplication::startRecording);
-		connect(_rs, &RemoteSyncServer::saveImagesRecording, this, &CameraApplication::saveFrames);
+		connect(_rs, &RemoteSyncServer::saveImagesRecording, this, &CameraApplication::saveLocalFrames);
 		connect (_rs, &RemoteSyncServer::stopRecording, this, &CameraApplication::stopRecording);
 
 		_rs->listen(QHostAddress::Any, RemoteSyncServer::preferredPort);
+
+		QTextStream out(stdout);
+		out << "RealSense NIR Frame recorder - server mode" << "\n";
+		out << QDateTime::currentDateTime().toString() << "\n";
+		out << "Started listening on port " << _rs->serverPort() << endl;
 	}
 
 }
@@ -248,6 +358,6 @@ void CameraApplication::manageAcquisitionError(QString txt) {
 		_mw->showErrorMessage(txt);
 	} else {
 		QTextStream err(stderr);
-		err << txt << Qt::endl;
+		err << txt << endl;
 	}
 }

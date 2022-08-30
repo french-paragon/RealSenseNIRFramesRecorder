@@ -23,7 +23,7 @@ RemoteConnectionManager::RemoteConnectionManager(RemoteSyncServer *server, QTcpS
 	_socket(socket),
 	_server(server)
 {
-	_messageBufferCurrentMessagePos = -1;
+	_messageBufferCurrentMessagePos = 0;
 }
 
 bool RemoteConnectionManager::configure() {
@@ -46,19 +46,25 @@ void RemoteConnectionManager::collectData() {
 
 		_messageBuffer += _socket->read(MaxMessageSize);
 
+		qDebug() << "Message buffer grows: " << _messageBuffer;
+
 		while (_messageBufferCurrentMessagePos != _messageBuffer.size()) {
 
 			if (_messageBuffer[_messageBufferCurrentMessagePos] == EndMsgSymbol) {
 
 				treatRequest();
 				_messageBuffer = _messageBuffer.mid(_messageBufferCurrentMessagePos+1);
-				_messageBufferCurrentMessagePos = 0;
+				_messageBufferCurrentMessagePos = -1;
+
+				qDebug() << "Message buffer after treating request: " << _messageBuffer << " pos: " << _messageBufferCurrentMessagePos;
 
 			} else if (_messageBufferCurrentMessagePos == MaxMessageSize-1) {
 
 				_messageBuffer = _messageBuffer.mid(_messageBufferCurrentMessagePos+1);
-				_messageBufferCurrentMessagePos = 0;
+				_messageBufferCurrentMessagePos = -1;
 				manageInvalidRequest();
+
+				qDebug() << "Message buffer after invalid request: " << _messageBuffer << " pos: " << _messageBufferCurrentMessagePos;
 
 			}
 
@@ -79,13 +85,15 @@ void RemoteConnectionManager::treatRequest() {
 		return;
 	}
 
-	QByteArray msg = _messageBuffer.left(_messageBufferCurrentMessagePos+1);
+	QByteArray msg = _messageBuffer.left(_messageBufferCurrentMessagePos);
 
 	if (msg.length() < actionCodeBytes) {
 		manageInvalidRequest();
 	}
 
 	QByteArray actionCode = msg.left(actionCodeBytes);
+
+	qDebug() << "Request received for: " << actionCode;
 
 	if (actionCode == SetSaveFolderActionCode) {
 		manageSetSaveFolderActionRequest(msg.mid(actionCodeBytes));
@@ -128,7 +136,9 @@ void RemoteConnectionManager::manageStartRecordActionRequest(QByteArray const& m
 	QString data = QString::fromUtf8(msg);
 
 	bool ok;
-	int camNum = data.toInt(&ok, 16);
+    int camNum = data.toInt(&ok, 10);
+
+    qDebug() << "Start recording action request received with message: " << msg << " camNum: " << camNum << " status: " << ok;
 
 	if (ok) {
 		_server->startRecording(camNum);
@@ -143,7 +153,9 @@ void RemoteConnectionManager::manageSaveImagesActionRequest(QByteArray const& ms
 	QString data = QString::fromUtf8(msg);
 
 	bool ok;
-	int nFrames = data.toInt(&ok, 16);
+    int nFrames = data.toInt(&ok, 10);
+
+    qDebug() << "Frame save action request received with message: " << msg << " nFrames: " << nFrames << " status: " << ok;
 
 	if (ok) {
 		_server->saveImagesRecording(nFrames);
@@ -154,12 +166,18 @@ void RemoteConnectionManager::manageSaveImagesActionRequest(QByteArray const& ms
 
 }
 void RemoteConnectionManager::manageStopRecordActionRequest(QByteArray const& msg) {
+
+    qDebug() << "Stop recording action request received with message: " << msg;
+
 	Q_UNUSED(msg);
 	_server->stopRecording();
 	sendAnswer(true);
 
 }
 void RemoteConnectionManager::manageTimeMeasureActionRequest(QByteArray const& msg) {
+
+	qDebug() << "Timing action request received with message: " << msg;
+
 	QByteArray ans = msg;
 
 	sendAnswer(true, ans);
@@ -199,6 +217,8 @@ void RemoteConnectionManager::sendAnswer(bool ok, QString msg) {
 	QByteArray end(&code,1);
 	ans += end;
 
+	qDebug() << "Sending answer: " << ans;
+
 	_socket->write(ans);
 }
 
@@ -206,7 +226,7 @@ const qint16 RemoteSyncServer::preferredPort = 5050;
 
 RemoteSyncServer::RemoteSyncServer(QObject *parent) : QTcpServer(parent)
 {
-
+	connect(this, &QTcpServer::newConnection, this, &RemoteSyncServer::manageNewPendingConnection);
 }
 
 bool RemoteSyncServer::appIsRecording() const {
@@ -214,9 +234,13 @@ bool RemoteSyncServer::appIsRecording() const {
 }
 
 
-void RemoteSyncServer::newPendingConnection() {
+void RemoteSyncServer::manageNewPendingConnection() {
 
 	QTcpSocket* socket = nextPendingConnection();
+
+	QTextStream out(stdout);
+	out << "received a connection from " << socket->peerAddress().toString() << endl;
+
 	RemoteConnectionManager* manager = new RemoteConnectionManager(this, socket);
 
 	manager->configure();

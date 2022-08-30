@@ -102,7 +102,7 @@ void MainWindow::onCameraPaused() {
 }
 void MainWindow::onShot() {
 
-	CameraApplication::GetCameraApp()->saveFrames(1);
+	CameraApplication::GetCameraApp()->saveLocalFrames(1);
 }
 
 void MainWindow::showErrorMessage(QString txt) {

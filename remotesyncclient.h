@@ -8,8 +8,11 @@ class QTcpSocket;
 class RemoteSyncClient: public QObject
 {
 	Q_OBJECT
+
 public:
+
 	explicit RemoteSyncClient(QObject* parent = nullptr);
+	virtual ~RemoteSyncClient();
 
 	bool connectToHost(QString server, quint16 port);
 	bool disconnectFromHost();
@@ -22,6 +25,13 @@ public:
 	void startRecording(int cameraNum);
 	void saveImagesRecording(int nFrames);
 	void stopRecording();
+
+	QString getHost() const;
+	QString getDescr() const;
+
+Q_SIGNALS:
+
+	void connection_terminated();
 
 protected:
 

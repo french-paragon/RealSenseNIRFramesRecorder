@@ -51,6 +51,8 @@ set(PROG_SRC
     cameragrabber.h
     cameraslist.cpp
     cameraslist.h
+    remoteconnectionlist.cpp
+    remoteconnectionlist.h
     remotesyncserver.cpp
     remotesyncserver.h
     remotesyncclient.cpp
@@ -66,7 +68,28 @@ else()
   )
 endif()
 
-target_link_libraries(RealSenseNirFramesRecorder PRIVATE Qt${QT_VERSION_MAJOR}::Widgets Qt${QT_VERSION_MAJOR}::Network realsense2 ${STEREOVISION_LIB} JPEG::JPEG PNG::PNG TIFF::TIFF)
+target_link_libraries(RealSenseNirFramesRecorder PRIVATE Qt${QT_VERSION_MAJOR}::Widgets Qt${QT_VERSION_MAJOR}::Network realsense2 ${STEREOVISION_LIB})
+
+if (TARGET JPEG::JPEG)
+    target_link_libraries(RealSenseNirFramesRecorder PRIVATE JPEG::JPEG)
+endif()
+if (TARGET JPEG)
+    target_link_libraries(RealSenseNirFramesRecorder PRIVATE JPEG)
+endif()
+
+if (TARGET PNG::PNG)
+    target_link_libraries(RealSenseNirFramesRecorder PRIVATE PNG::PNG)
+endif()
+if (TARGET PNG)
+    target_link_libraries(RealSenseNirFramesRecorder PRIVATE PNG)
+endif()
+
+if (TARGET TIFF::TIFF)
+    target_link_libraries(RealSenseNirFramesRecorder PRIVATE TIFF::TIFF)
+endif()
+if (TARGET TIFF)
+    target_link_libraries(RealSenseNirFramesRecorder PRIVATE TIFF)
+endif()
 
 install (FILES desktops/RealSenseNirFramesRecorder.desktop DESTINATION usr/share/applications)
 install (TARGETS RealSenseNirFramesRecorder DESTINATION usr/bin)

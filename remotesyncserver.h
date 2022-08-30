@@ -73,7 +73,7 @@ Q_SIGNALS:
 
 protected:
 
-	void newPendingConnection();
+	void manageNewPendingConnection();
 
 };
 

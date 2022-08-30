@@ -4,6 +4,8 @@
 #include <QTcpSocket>
 #include <QHostAddress>
 #include <QDateTime>
+#include <QDebug>
+#include <QThread>
 
 #include "remotesyncserver.h"
 
@@ -11,14 +13,22 @@ RemoteSyncClient::RemoteSyncClient(QObject *parent) :
 	QObject(parent),
 	_socket(nullptr)
 {
-	_messageBufferCurrentMessagePos = -1;
+	_messageBufferCurrentMessagePos = 0;
+}
+
+RemoteSyncClient::~RemoteSyncClient() {
+	disconnectFromHost();
 }
 
 void RemoteSyncClient::collectData() {
 
 	while (_socket->bytesAvailable() > 0) {
 
-		_messageBuffer += _socket->read(RemoteConnectionManager::MaxMessageSize);
+		QByteArray packet = _socket->read(RemoteConnectionManager::MaxMessageSize);
+
+		qDebug() << "received packet: " << packet;
+
+		_messageBuffer += packet;
 
 		while (_messageBufferCurrentMessagePos != _messageBuffer.size()) {
 
@@ -26,12 +36,12 @@ void RemoteSyncClient::collectData() {
 
 				treatAnswer();
 				_messageBuffer = _messageBuffer.mid(_messageBufferCurrentMessagePos+1);
-				_messageBufferCurrentMessagePos = 0;
+				_messageBufferCurrentMessagePos = -1;
 
 			} else if (_messageBufferCurrentMessagePos == RemoteConnectionManager::MaxMessageSize-1) {
 
 				_messageBuffer = _messageBuffer.mid(_messageBufferCurrentMessagePos+1);
-				_messageBufferCurrentMessagePos = 0;
+				_messageBufferCurrentMessagePos = -1;
 				manageInvalidAnswer();
 
 			}
@@ -44,7 +54,10 @@ void RemoteSyncClient::collectData() {
 }
 void RemoteSyncClient::treatAnswer() {
 
-	if (_previousRequestType.isEmpty()) {
+	QByteArray reqType = _previousRequestType;
+	_previousRequestType.clear();
+
+	if (reqType.isEmpty()) {
 		return;
 	}
 
@@ -56,9 +69,9 @@ void RemoteSyncClient::treatAnswer() {
 		return;
 	}
 
-	QByteArray msg = _messageBuffer.left(_messageBufferCurrentMessagePos+1);
+	QByteArray msg = _messageBuffer.left(_messageBufferCurrentMessagePos);
 
-	if (msg.length() < RemoteConnectionManager::actionCodeBytes) {
+	if (msg.length() < 1) {
 		manageInvalidAnswer();
 	}
 
@@ -78,6 +91,7 @@ void RemoteSyncClient::treatAnswer() {
 	int space_pos = msg.indexOf(' ');
 
 	if (space_pos < 0) {
+		qDebug() << "space pos not found";
 		manageInvalidAnswer();
 		return;
 	}
@@ -85,29 +99,32 @@ void RemoteSyncClient::treatAnswer() {
 	QByteArray timestamp = msg.left(space_pos);
 
 	bool int_ok;
-	qint64 ms_server = QString::fromUtf8(timestamp).toInt(&int_ok, 16);
+	qint64 ms_server = QString::fromUtf8(timestamp).toLongLong(&int_ok, 16);
 
 	if (!int_ok) {
+		qDebug() << "cannot convert timestamp to int";
 		manageInvalidAnswer();
 		return;
 	}
 
 	QDateTime serverTime = QDateTime::fromMSecsSinceEpoch(ms_server);
 
-	if (_previousRequestType == RemoteConnectionManager::StartRecordActionCode) {
+	if (reqType == RemoteConnectionManager::StartRecordActionCode) {
 		manageStartRecordActionAnswer(status_ok, serverTime, msg.mid(space_pos+1));
 		return;
 	}
 
-	if (_previousRequestType == RemoteConnectionManager::StopRecordActionCode) {
+	if (reqType == RemoteConnectionManager::StopRecordActionCode) {
 		manageStopRecordActionAnswer(status_ok, serverTime, msg.mid(space_pos+1));
 		return;
 	}
 
-	if (_previousRequestType == RemoteConnectionManager::TimeMeasureActionCode) {
+	if (reqType == RemoteConnectionManager::TimeMeasureActionCode) {
 		manageTimeMeasureActionAnswer(status_ok, serverTime, msg.mid(space_pos+1));
 		return;
 	}
+
+	qDebug() << "previous request type not recognized !";
 
 	// if request code not recognized
 	manageInvalidAnswer();
@@ -131,7 +148,9 @@ bool RemoteSyncClient::connectToHost(QString server, quint16 port) {
 		QTextStream err(stderr);
 
 		err << "Impossible to open connection to " << _socket->peerName() << " [" << _socket->peerAddress().toString() << "]\n";
-		err << "Error: " << _socket->error() << Qt::endl;
+		err << "Error: " << _socket->error() << endl;
+		_socket->deleteLater();
+		_socket = nullptr;
 	}
 
 	return ok;
@@ -144,13 +163,15 @@ bool RemoteSyncClient::disconnectFromHost() {
 
 	if (_socket != nullptr) {
 
-		ok = _socket->waitForDisconnected();
+		if (_socket->state() == QAbstractSocket::ConnectedState) {
+			ok = _socket->waitForDisconnected();
+		}
 
 		if (!ok) {
 			QTextStream err(stderr);
 
 			err << "Impossible to close connection to " << _socket->peerName() << " [" << _socket->peerAddress().toString() << "]\n";
-			err << "Error: " << _socket->error() << Qt::endl;
+			err << "Error: " << _socket->error() << endl;
 		}
 
 		disconnect(_socket, &QIODevice::readyRead, this, &RemoteSyncClient::collectData);
@@ -161,6 +182,8 @@ bool RemoteSyncClient::disconnectFromHost() {
 		_socket->deleteLater();
 		_socket = nullptr;
 	}
+
+	Q_EMIT connection_terminated();
 
 	return ok;
 }
@@ -175,6 +198,8 @@ bool RemoteSyncClient::isConnected() const {
 }
 
 void RemoteSyncClient::checkConnectionTime() const {
+
+	qDebug() << "checkConnectionTime requested  for " << _socket->peerName();
 
 	if (isConnected()) {
 
@@ -194,18 +219,30 @@ void RemoteSyncClient::setSaveFolder(QString folder) {
 }
 void RemoteSyncClient::startRecording(int cameraNum) {
 	if (isConnected()) {
-		sendRequest(RemoteConnectionManager::StartRecordActionCode, QString("%1").arg(cameraNum, 0, 16).toUtf8());
+		sendRequest(RemoteConnectionManager::StartRecordActionCode, QString("%1").arg(cameraNum, 0, 10).toUtf8());
 	}
 }
 void RemoteSyncClient::saveImagesRecording(int nFrames) {
 	if (isConnected()) {
-		sendRequest(RemoteConnectionManager::SaveImgsActionCode, QString("%1").arg(nFrames, 0, 16).toUtf8());
+		sendRequest(RemoteConnectionManager::SaveImgsActionCode, QString("%1").arg(nFrames, 0, 10).toUtf8());
 	}
 }
 void RemoteSyncClient::stopRecording() {
 	if (isConnected()) {
 		sendRequest(RemoteConnectionManager::StopRecordActionCode);
 	}
+}
+
+QString RemoteSyncClient::getHost() const {
+	return _socket->peerName();
+}
+
+QString RemoteSyncClient::getDescr() const {
+	if (isConnected()) {
+		return _socket->peerName();
+	}
+
+	return "unconnected";
 }
 
 
@@ -215,7 +252,7 @@ void RemoteSyncClient::sendRequest(QByteArray type, QString msg) const {
 
 		_previousRequestType = type;
 
-		QByteArray ans=type;
+		QByteArray req=type;
 
 		/*QDateTime now = QDateTime::currentDateTimeUtc();
 		qint64 ms = now.currentMSecsSinceEpoch();
@@ -227,13 +264,16 @@ void RemoteSyncClient::sendRequest(QByteArray type, QString msg) const {
 			ans += ' ';
 		}*/
 
-		ans += msgdata;
+		req += msgdata;
 
 		char code = RemoteConnectionManager::EndMsgSymbol;
 		QByteArray end(&code,1);
-		ans += end;
+		req += end;
 
-		_socket->write(ans);
+		qDebug() << "ready to send request: " << req;
+
+		_socket->write(req);
+		_socket->flush();
 	}
 
 }
@@ -245,7 +285,7 @@ void RemoteSyncClient::manageStartRecordActionAnswer(bool status_ok, QDateTime c
 	QTextStream out(stdout);
 
 	out << "Start record action answer received! Status is : " << ((status_ok) ? "ok" : "error") << "\n\t";
-	out << "Server time was :" << serverTime.toString() << Qt::endl;
+	out << "Server time was :" << serverTime.toString() << endl;
 
 }
 void RemoteSyncClient::manageSaveImagesActionAnswer(bool status_ok, QDateTime const& serverTime, QByteArray const& msg) {
@@ -255,7 +295,7 @@ void RemoteSyncClient::manageSaveImagesActionAnswer(bool status_ok, QDateTime co
 	QTextStream out(stdout);
 
 	out << "Save images action answer received! Status is : " << ((status_ok) ? "ok" : "error") << "\n\t";
-	out << "Server time was :" << serverTime.toString() << Qt::endl;
+	out << "Server time was :" << serverTime.toString() << endl;
 }
 void RemoteSyncClient::manageStopRecordActionAnswer(bool status_ok, QDateTime const& serverTime, QByteArray const& msg) {
 
@@ -264,7 +304,7 @@ void RemoteSyncClient::manageStopRecordActionAnswer(bool status_ok, QDateTime co
 	QTextStream out(stdout);
 
 	out << "Stop record action answer received! Status is : " << ((status_ok) ? "ok" : "error") << "\n\t";
-	out << "Server time was :" << serverTime.toString() << Qt::endl;
+	out << "Server time was :" << serverTime.toString() << endl;
 
 }
 void RemoteSyncClient::manageIsRecordingActionAnswer(bool status_ok, QDateTime const& serverTime, QByteArray const& msg) {
@@ -274,21 +314,23 @@ void RemoteSyncClient::manageIsRecordingActionAnswer(bool status_ok, QDateTime c
 	QTextStream out(stdout);
 
 	out << "Is recording action answer received! Status is : " << ((status_ok) ? "ok" : "error") << "\n\t";
-	out << "Server time was :" << serverTime.toString() << Qt::endl;
+	out << "Server time was :" << serverTime.toString() << endl;
 
 }
 void RemoteSyncClient::manageTimeMeasureActionAnswer(bool status_ok, QDateTime const& serverTime, QByteArray const& msg) {
 
+	qDebug() << "manageTimeMeasureAction answer received: " << msg;
+
 	qint64 now_ms = QDateTime::currentDateTimeUtc().currentMSecsSinceEpoch();
 
 	bool ok = true;
-	qint64 sent_ms = msg.toLongLong(&ok);
+	qint64 sent_ms = msg.toLongLong(&ok, 16);
 
 	if (!ok) {
 		return;
 	}
 
-	qint64 server_ms = serverTime.currentMSecsSinceEpoch();
+	qint64 server_ms = serverTime.toMSecsSinceEpoch();
 
 	QTextStream out(stdout);
 
@@ -296,7 +338,7 @@ void RemoteSyncClient::manageTimeMeasureActionAnswer(bool status_ok, QDateTime c
 	out << "Submission time [ms] :" << sent_ms << "\n\t";
 	out << "Reception time [ms] :" << now_ms << "\n\t";
 	out << "time delta [ms] :" << (now_ms - sent_ms) << "\n\t";
-	out << "Server time [ms] :" << server_ms << Qt::endl;
+	out << "Server time [ms] :" << server_ms << endl;
 }
 
 void RemoteSyncClient::manageInvalidAnswer() {
