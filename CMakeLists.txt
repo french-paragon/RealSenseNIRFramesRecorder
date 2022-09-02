@@ -31,6 +31,9 @@ find_package(JPEG REQUIRED)
 find_package(PNG REQUIRED)
 find_package(TIFF REQUIRED)
 
+find_package( OpenCV REQUIRED )
+include_directories( ${OpenCV_INCLUDE_DIRS} )
+
 find_library(REALSENSE2_FOUND realsense2 HINTS ${LIBRARY_DIR} REQUIRED)
 
 add_subdirectory(modules)
@@ -68,7 +71,7 @@ else()
   )
 endif()
 
-target_link_libraries(RealSenseNirFramesRecorder PRIVATE Qt${QT_VERSION_MAJOR}::Widgets Qt${QT_VERSION_MAJOR}::Network realsense2 ${STEREOVISION_LIB})
+target_link_libraries(RealSenseNirFramesRecorder PRIVATE Qt${QT_VERSION_MAJOR}::Widgets Qt${QT_VERSION_MAJOR}::Network ${OpenCV_LIBS} realsense2 ${STEREOVISION_LIB})
 
 if (TARGET JPEG::JPEG)
     target_link_libraries(RealSenseNirFramesRecorder PRIVATE JPEG::JPEG)

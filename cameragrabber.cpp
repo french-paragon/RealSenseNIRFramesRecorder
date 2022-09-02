@@ -1,8 +1,12 @@
 #include "cameragrabber.h"
 
+#include <QCoreApplication>
+
+#include <opencv2/videoio.hpp>
+
 CameraGrabber::CameraGrabber(QObject *parent) : QThread(parent)
 {
-
+	_opencv_dev_id = -1;
 }
 
 rs2::config &CameraGrabber::config()
@@ -19,10 +23,21 @@ void CameraGrabber::setConfig(const rs2::config &config)
 {
 	_config = config;
 
-	_config.enable_stream(rs2_stream::RS2_STREAM_INFRARED, 1, 1280, 800, rs2_format::RS2_FORMAT_Y16, 15);
-	_config.enable_stream(rs2_stream::RS2_STREAM_INFRARED, 2, 1280, 800, rs2_format::RS2_FORMAT_Y16, 15);
+	_config.enable_stream(rs2_stream::RS2_STREAM_INFRARED, 1, 848, 480, rs2_format::RS2_FORMAT_Y8, 60);
+	_config.enable_stream(rs2_stream::RS2_STREAM_INFRARED, 2, 848, 480, rs2_format::RS2_FORMAT_Y8, 60);
+	_config.enable_stream(rs2_stream::RS2_STREAM_COLOR, -1, 848, 480, rs2_format::RS2_FORMAT_Y8, 60);
 	//_config.enable_all_streams();
 
+}
+
+int CameraGrabber::opencvdeviceid() const
+{
+	return _opencv_dev_id;
+}
+
+void CameraGrabber::setOpenCvDeviceId(const int &devid)
+{
+	_opencv_dev_id = devid;
 }
 
 
@@ -32,25 +47,59 @@ void CameraGrabber::run () {
 	_continue = true;
 	_interruptionMutex.unlock();
 
-	rs2::pipeline pipe;
-	pipe.start(_config);
-	rs2::frameset frames;
+	if (_opencv_dev_id >= 0) {
 
-	while (_continue) {
-		try {
-			frames = pipe.wait_for_frames();
-		} catch (std::runtime_error & e) {
-			emit acquisitionEndedWithError(e.what());
-			break;
+		cv::Mat frame;
+		cv::VideoCapture cap;
+
+		cap.open(_opencv_dev_id);
+		if (!cap.isOpened()) {
+			emit acquisitionEndedWithError("Unable to open video device with opencv");;
+			return;
 		}
 
-		rs2::frame fl = frames.get_infrared_frame(1);
-		rs2::frame fr = frames.get_infrared_frame(2);
+		while (_continue) {
+			cap.read(frame);
 
-		ImageFrame frameLeft = realsenseFrameToImageFrame(fl);
-		ImageFrame frameRight = realsenseFrameToImageFrame(fr);
+			if (frame.empty()) {
+				emit acquisitionEndedWithError("Missing frame");
+				break;
+			}
 
-		emit framesReady(frameLeft, frameRight);
+			ImageFrame frameLeft = ImageFrame();
+			ImageFrame frameRight = ImageFrame();
+
+			ImageFrame frameRGB = cvFrameToImageFrame(frame);
+
+			Q_EMIT framesReady(frameLeft, frameRight, frameRGB);
+		}
+
+	} else {
+
+		rs2::pipeline pipe;
+		pipe.start(_config);
+		rs2::frameset frames;
+
+		while (_continue) {
+			try {
+				frames = pipe.wait_for_frames();
+			} catch (std::runtime_error & e) {
+				emit acquisitionEndedWithError(e.what());
+				break;
+			}
+
+			rs2::frame fl = frames.get_infrared_frame(1);
+			rs2::frame fr = frames.get_infrared_frame(2);
+
+			rs2::frame frgb = frames.get_color_frame();
+
+			ImageFrame frameLeft = realsenseFrameToImageFrame(fl);
+			ImageFrame frameRight = realsenseFrameToImageFrame(fr);
+
+			ImageFrame frameRGB = realsenseFrameToImageFrame(frgb);
+
+			Q_EMIT framesReady(frameLeft, frameRight, frameRGB);
+		}
 	}
 }
 void CameraGrabber::finish() {
@@ -90,6 +139,41 @@ ImageFrame realsenseFrameToImageFrame(const rs2::frame &f) {
 		ImageFrame ret((uint16_t*) f.get_data(),
 					   Multidim::Array<uint16_t,2>::ShapeBlock{h,w},
 					   Multidim::Array<uint16_t,2>::ShapeBlock{w,1},
+					   false);
+		return ret;
+	}
+
+	throw std::runtime_error("Unsupported frame format !");
+}
+
+ImageFrame cvFrameToImageFrame(const cv::Mat &frame) {
+
+	const int w = frame.cols;
+	const int h = frame.rows;
+	const int c = frame.channels();
+
+	int depth = frame.depth();
+
+	if (depth == CV_8U) {
+
+		ImageFrame ret((uint8_t*) frame.data,
+					   Multidim::Array<uint8_t,3>::ShapeBlock{h,w, c},
+					   Multidim::Array<uint8_t,3>::ShapeBlock{c*w,c,1},
+					   false);
+		return ret;
+
+	} else if (depth == CV_16U and c == 1) {
+
+		ImageFrame ret((uint16_t*) frame.data,
+					   Multidim::Array<uint16_t,2>::ShapeBlock{h,w},
+					   Multidim::Array<uint16_t,2>::ShapeBlock{w,1},
+					   false);
+		return ret;
+	} else if (depth == CV_32F and c == 1) {
+
+		ImageFrame ret((float*) frame.data,
+					   Multidim::Array<float,2>::ShapeBlock{h,w},
+					   Multidim::Array<float,2>::ShapeBlock{w,1},
 					   false);
 		return ret;
 	}

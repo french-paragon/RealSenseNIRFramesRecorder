@@ -56,7 +56,7 @@ Q_SIGNALS:
 
 protected:
 
-	void receiveFrames(ImageFrame frameLeft, ImageFrame frameRight);
+	void receiveFrames(ImageFrame frameLeft, ImageFrame frameRight, ImageFrame frameRGB);
 	void configureMainWindow();
 	void configureConsoleWatcher();
 	void configureApplicationServer();

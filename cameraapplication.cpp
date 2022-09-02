@@ -160,13 +160,24 @@ void CameraApplication::startRecording(int prow) {
 		out << "Start recording with camera " << _lst->data(_lst->index(row)).toString() << endl;
 	}
 
+	bool isRealSense = _lst->isRs(row);
+
 	std::string sn = _lst->serialNumber(row);
 
-	rs2::config config;
-	config.enable_device(sn);
-
 	_img_grab = new CameraGrabber(this);
-	_img_grab->setConfig(config);
+
+	if (isRealSense) {
+
+		rs2::config config;
+		config.enable_device(sn);
+
+		_img_grab->setConfig(config);
+
+	} else {
+
+		_img_grab->setOpenCvDeviceId(_lst->openCvDeviceId(row));
+	}
+
 	connect(_img_grab, &CameraGrabber::framesReady, this, &CameraApplication::receiveFrames, Qt::DirectConnection);
 	connect(_img_grab, &CameraGrabber::acquisitionEndedWithError, this, &CameraApplication::manageAcquisitionError);
 
@@ -248,16 +259,18 @@ bool CameraApplication::isRecordingToDisk() const {
 	return isRecording() and _imgsToSave;
 }
 
-void CameraApplication::receiveFrames(ImageFrame frameLeft, ImageFrame frameRight) {
+void CameraApplication::receiveFrames(ImageFrame frameLeft, ImageFrame frameRight, ImageFrame frameRGB) {
 
 	if (_imgsToSave > 0) {
 		QDateTime date = QDateTime::currentDateTimeUtc();
 		QString timestamp =date.toString("yyyy_MM_dd_hh_mm_ss_zzz");
-		QString leftFramePath = _imgFolder.filePath(timestamp + "_left.png");
-		QString rightFramePath = _imgFolder.filePath(timestamp + "_right.png");
+		QString leftFramePath = _imgFolder.filePath(timestamp + "_left.stevimg");
+		QString rightFramePath = _imgFolder.filePath(timestamp + "_right.stevimg");
+		QString rgbFramePath = _imgFolder.filePath(timestamp + "_rgb.stevimg");
 
 		frameLeft.save(leftFramePath);
 		frameRight.save(rightFramePath);
+		frameRGB.save(rgbFramePath);
 
 		_saveAcessControl.lock();
 		_imgsToSave--;
