@@ -41,6 +41,7 @@ public:
 	void saveLocalFrames(int nFrames);
 	void stopRecordSession();
 	void stopRecording();
+	void exportRecorded();
 
 	void connectToRemote(QString host);
 	void disconnectFromRemote(QString host);

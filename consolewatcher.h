@@ -17,6 +17,7 @@ public:
 	static const QString start_record_cmd;
 	static const QString record_cmd;
 	static const QString stop_record_cmd;
+	static const QString export_record_cmd;
 	static const QString list_cams_cmd;
 	static const QString list_connections_cmd;
 	static const QString remote_connect_cmd;
@@ -38,6 +39,7 @@ Q_SIGNALS:
 	void startRecordTriggered(int camRow);
 	void saveImgsTriggered(int nImgs);
 	void stopRecordTriggered();
+	void exportRecordTriggered();
 	void listCamerasTriggered();
 	void listConnectionsTriggered();
 	void remoteConnectionTriggered(QString host);

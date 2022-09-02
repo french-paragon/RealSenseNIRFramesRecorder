@@ -23,6 +23,8 @@ public:
 	ImageFrame(float* data, Multidim::Array<float, 2>::ShapeBlock shape, Multidim::Array<float, 2>::ShapeBlock stride, bool copy = true);
 	ImageFrame(uint8_t* data, Multidim::Array<uint8_t, 3>::ShapeBlock shape, Multidim::Array<uint8_t, 3>::ShapeBlock stride, bool copy = true);
 
+	ImageFrame(const QString &fileName);
+
 	ImageFrame(ImageFrame const& other);
 
 	~ImageFrame();

@@ -9,6 +9,7 @@ const QString ConsoleWatcher::set_camera_cmd = "camera";
 const QString ConsoleWatcher::start_record_cmd = "start";
 const QString ConsoleWatcher::record_cmd = "save";
 const QString ConsoleWatcher::stop_record_cmd = "stop";
+const QString ConsoleWatcher::export_record_cmd = "export";
 const QString ConsoleWatcher::list_cams_cmd = "list";
 const QString ConsoleWatcher::list_connections_cmd = "remotes";
 const QString ConsoleWatcher::remote_connect_cmd = "connect";
@@ -115,6 +116,14 @@ void ConsoleWatcher::readCommand() {
 			Q_EMIT InvalidTriggered(line);
 		} else {
 			emit stopRecordTriggered();
+		}
+
+	} else if (cmd == export_record_cmd) {
+
+		if (values.size() != 1) {
+			Q_EMIT InvalidTriggered(line);
+		} else {
+			emit exportRecordTriggered();
 		}
 
 	} else if (cmd == list_cams_cmd) {

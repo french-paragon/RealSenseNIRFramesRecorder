@@ -230,6 +230,40 @@ void CameraApplication::stopRecording() {
 	_img_grab = nullptr;
 }
 
+void CameraApplication::exportRecorded() {
+
+	QTextStream out(stdout);
+
+	if (isRecording()) {
+		out << "Not exporting while recording !" << endl;
+		return;
+	}
+
+	QList<QString> exported = _imgFolder.entryList({"*.stevimg"});
+
+	out << "Exporting !" << endl;
+	for (QString& file : exported) {
+        QFileInfo info(_imgFolder.filePath(file));
+
+		if (info.exists()) {
+            ImageFrame frame(_imgFolder.filePath(file));
+
+			if (frame.isValid()) {
+				bool ok = frame.save(_imgFolder.filePath(info.baseName() + ".png"));
+
+				if (ok) {
+					out << "Exported " << file << endl;
+                    QFile f(_imgFolder.filePath(file));
+					f.remove();
+				} else {
+					out << "Could not export " << file << endl;
+				}
+			}
+		}
+	}
+	out << "Exports done !" << endl;
+}
+
 void CameraApplication::connectToRemote(QString host) {
 
 	RemoteSyncClient* remote = new RemoteSyncClient(this);
@@ -308,6 +342,7 @@ void CameraApplication::configureConsoleWatcher() {
 		connect(_cw, &ConsoleWatcher::startRecordSessionTriggered, this, &CameraApplication::startRecordSession);
 		connect(_cw, &ConsoleWatcher::saveImgsTriggered, this, &CameraApplication::saveFrames);
 		connect (_cw, &ConsoleWatcher::stopRecordTriggered, this, &CameraApplication::stopRecordSession);
+		connect (_cw, &ConsoleWatcher::exportRecordTriggered, this, &CameraApplication::exportRecorded);
 
 		connect (_cw, &ConsoleWatcher::listCamerasTriggered, this, [this] () {
 			QTextStream out(stdout);
