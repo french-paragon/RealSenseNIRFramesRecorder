@@ -5,15 +5,19 @@
 #include <memory>
 
 #include <QString>
+#include <QMap>
 
 class ImageFrame
 {
 public:
+
+	static const QString colorSpaceKey;
+
 	enum ImgType {
 		GRAY_8,
 		GRAY_16,
 		GRAY_F32,
-		RGBA_8,
+		MULTICHANNEL_8,
 		INVALID
 	};
 
@@ -40,7 +44,7 @@ public:
 			return _grayscale16->shape()[0];
 		case GRAY_F32:
 			return _grayscalef32->shape()[0];
-		case RGBA_8:
+		case MULTICHANNEL_8:
 			return _rgba8->shape()[0];
 		default:
 			return 0;
@@ -55,7 +59,7 @@ public:
 			return _grayscale16->shape()[1];
 		case GRAY_F32:
 			return _grayscalef32->shape()[1];
-		case RGBA_8:
+		case MULTICHANNEL_8:
 			return _rgba8->shape()[1];
 		default:
 			return 0;
@@ -64,7 +68,7 @@ public:
 
 	inline int channels() const {
 		switch (_type) {
-		case RGBA_8:
+		case MULTICHANNEL_8:
 			return _rgba8->shape()[2];
 		default:
 			return 1;
@@ -92,8 +96,8 @@ public:
 		return nullptr;
 	}
 
-	inline Multidim::Array<uint8_t, 3>* rgba8() const {
-		if (_type == RGBA_8) {
+	inline Multidim::Array<uint8_t, 3>* multichannels8() const {
+		if (_type == MULTICHANNEL_8) {
 			return _rgba8.get();
 		}
 		return nullptr;
@@ -101,6 +105,9 @@ public:
 
 	bool save(QString const& filePath) const;
 
+
+	QMap<QString, QString>& additionalInfos();
+	QMap<QString, QString> const& additionalInfos() const;
 
 protected:
 
@@ -110,6 +117,8 @@ protected:
 	std::shared_ptr<Multidim::Array<uint16_t, 2>> _grayscale16;
 	std::shared_ptr<Multidim::Array<float, 2>> _grayscalef32;
 	std::shared_ptr<Multidim::Array<uint8_t, 3>> _rgba8;
+
+	QMap<QString, QString> _additionalInfos;
 
 };
 

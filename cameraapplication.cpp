@@ -7,6 +7,7 @@
 #include "remotesyncserver.h"
 #include "remotesyncclient.h"
 #include "remoteconnectionlist.h"
+#include "v4l2camera.h"
 
 #include <QApplication>
 #include <QDateTime>
@@ -14,6 +15,8 @@
 #include <QTextStream>
 
 #include <QDebug>
+
+#include "LibStevi/imageProcessing/colorConversions.h"
 
 CameraApplication* CameraApplication::CurrentApp = nullptr;
 
@@ -175,7 +178,9 @@ void CameraApplication::startRecording(int prow) {
 
 	} else {
 
-		_img_grab->setOpenCvDeviceId(_lst->openCvDeviceId(row));
+		V4L2Camera::Descriptor descr = {"v4l2", _lst->v4l2DeviceId(row)};
+
+		_img_grab->setV4l2descr(descr);
 	}
 
 	connect(_img_grab, &CameraGrabber::framesReady, this, &CameraApplication::receiveFrames, Qt::DirectConnection);
@@ -249,12 +254,38 @@ void CameraApplication::exportRecorded() {
             ImageFrame frame(_imgFolder.filePath(file));
 
 			if (frame.isValid()) {
-				bool ok = frame.save(_imgFolder.filePath(info.baseName() + ".png"));
+
+				bool ok = false;
+				QString outPath = _imgFolder.filePath(info.baseName() + ".png");
+
+				if (frame.additionalInfos().contains(ImageFrame::colorSpaceKey)) {
+					QString colorSpace = frame.additionalInfos()[ImageFrame::colorSpaceKey];
+
+					if (colorSpace == "YUYV") {
+						Multidim::Array<uint8_t,3> rgb = StereoVision::ImageProcessing::yuyv2rgb<uint8_t,3>(*frame.multichannels8());
+						ImageFrame converted(&rgb.atUnchecked(0,0,0), rgb.shape(), rgb.strides(), false);
+						ok = converted.save(outPath);
+					} else if (colorSpace == "YVYU") {
+						Multidim::Array<uint8_t,3> rgb = StereoVision::ImageProcessing::yvyu2rgb<uint8_t,3>(*frame.multichannels8());
+						ImageFrame converted(&rgb.atUnchecked(0,0,0), rgb.shape(), rgb.strides(), false);
+						ok = converted.save(outPath);
+					} else if (colorSpace == "YUV") {
+						Multidim::Array<uint8_t,3> rgb = StereoVision::ImageProcessing::yuv2rgb<uint8_t,3>(*frame.multichannels8());
+						ImageFrame converted(&rgb.atUnchecked(0,0,0), rgb.shape(), rgb.strides(), false);
+						ok = converted.save(outPath);
+					}
+				}
+
+				if (!ok) {
+					ok = frame.save(outPath);
+				}
 
 				if (ok) {
 					out << "Exported " << file << endl;
-                    QFile f(_imgFolder.filePath(file));
+					QFile f(_imgFolder.filePath(file));
 					f.remove();
+					QFile fi(_imgFolder.filePath(file+".infos"));
+					fi.remove();
 				} else {
 					out << "Could not export " << file << endl;
 				}

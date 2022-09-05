@@ -2,6 +2,12 @@
 
 #include "LibStevi/io/image_io.h"
 
+#include <QFile>
+#include <QTextStream>
+
+
+const QString ImageFrame::colorSpaceKey = "colorspace";
+
 ImageFrame::ImageFrame() :
 	_type(INVALID),
 	_grayscale8(),
@@ -39,7 +45,7 @@ ImageFrame::ImageFrame(float* data, Multidim::Array<float, 2>::ShapeBlock shape,
 	_grayscalef32 = std::make_shared<Multidim::Array<float, 2>>(data, shape, stride, copy);
 }
 ImageFrame::ImageFrame(uint8_t* data, Multidim::Array<uint8_t, 3>::ShapeBlock shape, Multidim::Array<uint8_t, 3>::ShapeBlock stride, bool copy) :
-	_type(RGBA_8),
+	_type(MULTICHANNEL_8),
 	_grayscale8(),
 	_grayscale16(),
 	_grayscalef32(),
@@ -55,6 +61,30 @@ ImageFrame::ImageFrame(QString const& fileName) :
 	_grayscalef32(),
 	_rgba8()
 {
+
+
+	QFile infoFile(fileName + ".infos");
+
+	if (infoFile.exists()) {
+
+		if(infoFile.open(QIODevice::ReadOnly)) {
+
+			QByteArray line = infoFile.readLine();
+
+			while (line.isEmpty()) {
+
+				QString l = QString::fromLocal8Bit(line).trimmed();
+				QStringList lst = l.split(":");
+
+				if (lst.size() == 2) {
+					_additionalInfos.insert(lst[0].trimmed(), lst[1].trimmed());
+				}
+
+				line = infoFile.readLine();
+			}
+		}
+
+	}
 
 	if (fileName.endsWith(".stevimg")) {
 
@@ -90,7 +120,7 @@ ImageFrame::ImageFrame(QString const& fileName) :
             if (!img.empty()) {
                 _rgba8 = std::make_shared<Multidim::Array<uint8_t, 3>>();
                 *_rgba8 = std::move(img);
-                _type = RGBA_8;
+				_type = MULTICHANNEL_8;
             }
         }
 
@@ -101,7 +131,7 @@ ImageFrame::ImageFrame(QString const& fileName) :
 		if (!img.empty() and img.shape()[2] == 3) {
 			_rgba8 = std::make_shared<Multidim::Array<uint8_t, 3>>();
 			*_rgba8 = std::move(img);
-			_type = RGBA_8;
+			_type = MULTICHANNEL_8;
 		}
 	}
 
@@ -112,7 +142,8 @@ ImageFrame::ImageFrame(ImageFrame const& other) :
 	_grayscale8(other._grayscale8),
 	_grayscale16(other._grayscale16),
 	_grayscalef32(other._grayscalef32),
-	_rgba8(other._rgba8)
+	_rgba8(other._rgba8),
+	_additionalInfos(other._additionalInfos)
 {
 
 }
@@ -123,6 +154,19 @@ ImageFrame::~ImageFrame() {
 } 
 
 bool ImageFrame::save(QString const& filePath) const {
+
+	if (!_additionalInfos.isEmpty()) {
+		QFile infoFile(filePath + ".infos");
+
+		if (infoFile.open(QIODevice::WriteOnly)){
+
+			for (QString key : _additionalInfos.keys()) {
+				QTextStream(&infoFile) << key << ": " << _additionalInfos[key] << "\n";
+			}
+
+			infoFile.close();
+		}
+	}
 
 	if (_type == GRAY_8) {
 		return StereoVision::IO::writeImage<uint8_t, uint8_t>(filePath.toStdString(), _grayscale8->subView(Multidim::DimSlice(), Multidim::DimSlice()));
@@ -136,9 +180,18 @@ bool ImageFrame::save(QString const& filePath) const {
 		return StereoVision::IO::writeImage<float, float>(filePath.toStdString(), _grayscalef32->subView(Multidim::DimSlice(), Multidim::DimSlice()));
 	}
 
-	if (_type == RGBA_8) {
+	if (_type == MULTICHANNEL_8) {
 		return StereoVision::IO::writeImage<uint8_t, uint8_t>(filePath.toStdString(), _rgba8->subView(Multidim::DimSlice(), Multidim::DimSlice(), Multidim::DimSlice()));
 	}
 
 	return false;
+}
+
+QMap<QString, QString> &ImageFrame::additionalInfos()
+{
+	return _additionalInfos;
+}
+
+QMap<QString, QString> const& ImageFrame::additionalInfos() const {
+	return _additionalInfos;
 }

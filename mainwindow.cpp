@@ -158,15 +158,15 @@ QPixmap imageFrameToQPixmap(const ImageFrame &f)
 		return px.scaled(w/2,h/2);
 	}
 
-	if (f.imgType() == ImageFrame::RGBA_8) {
+	if (f.imgType() == ImageFrame::MULTICHANNEL_8) {
 
-		if (f.rgba8()->shape()[2] == 3) { //RGB
-			QImage ret((uchar*) &f.rgba8()->atUnchecked(0,0,0), w, h, w*3, QImage::Format_RGB888);
+		if (f.multichannels8()->shape()[2] == 3) { //RGB
+			QImage ret((uchar*) &f.multichannels8()->atUnchecked(0,0,0), w, h, w*3, QImage::Format_RGB888);
 			return QPixmap::fromImage(ret);
 		}
 
-		if (f.rgba8()->shape()[2] == 4) { //RGBA
-			QImage ret((uchar*) &f.rgba8()->atUnchecked(0,0,0), w, h, w*4, QImage::Format_RGBA8888);
+		if (f.multichannels8()->shape()[2] == 4) { //RGBA
+			QImage ret((uchar*) &f.multichannels8()->atUnchecked(0,0,0), w, h, w*4, QImage::Format_RGBA8888);
 			return QPixmap::fromImage(ret);
 		}
 	}

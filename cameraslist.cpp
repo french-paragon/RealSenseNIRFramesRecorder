@@ -6,6 +6,8 @@
 #include <QVector>
 #include <QDebug>
 
+#include "v4l2camera.h"
+
 CamerasList::CamerasList(QObject *parent) : QAbstractListModel(parent)
 {
 
@@ -51,6 +53,10 @@ int CamerasList::openCvDeviceId(int row) {
 	return _cams[row].openCvDeviceId;
 }
 
+int CamerasList::v4l2DeviceId(int row) {
+	return _cams[row].v4l2DeviceId;
+}
+
 QVector<int> CamerasList::openCvDevicesIds() {
 	bool hasCam = true;
 	int device_id = 0;
@@ -70,6 +76,17 @@ QVector<int> CamerasList::openCvDevicesIds() {
 	return devices;
 }
 
+
+CamerasList::camInfos CamerasList::buildRsCamInfos(std::string serialNumber, QString name) {
+	return {serialNumber, name, true, -1, -1};
+}
+CamerasList::camInfos CamerasList::buildOpenCvCamInfos(int device_id) {
+	return {QString("cv%1").arg(device_id).toStdString(), QString("OpenCV cam %1").arg(device_id), false, device_id, -1};
+}
+CamerasList::camInfos CamerasList::buildV4L2CamInfos(int id, QString name) {
+	return {QString("v4l2_%1").arg(id).toStdString(), name, false, -1, id};
+}
+
 void CamerasList::refreshCamerasList() {
 
 	beginResetModel();
@@ -78,7 +95,9 @@ void CamerasList::refreshCamerasList() {
 
 	auto lst = ctx.query_devices();
 
-	QVector<int> devlst = openCvDevicesIds();
+	//QVector<int> devlst = openCvDevicesIds();
+
+	QVector<V4L2Camera::Descriptor> devlst = V4L2Camera::listAvailableCameras();
 
 	_cams.clear();
 	_cams.reserve(lst.size() + devlst.size());
@@ -88,13 +107,13 @@ void CamerasList::refreshCamerasList() {
 		std::string sn(dev.get_info(RS2_CAMERA_INFO_SERIAL_NUMBER));
 		std::string name(dev.get_info(RS2_CAMERA_INFO_NAME));
 
-		camInfos info = {sn, QString::fromStdString(name), true, 0};
+		camInfos info = buildRsCamInfos(sn, QString::fromStdString(name));
 		_cams.push_back(info);
 	}
 
-	for (int device_id : devlst) {
+	for (V4L2Camera::Descriptor const& descriptor : devlst) {
 
-		camInfos info = {QString("cv%1").arg(device_id).toStdString(), QString("OpenCV cam %1").arg(device_id), false, device_id};
+		camInfos info = buildV4L2CamInfos(descriptor.index,descriptor.name);
 		_cams.push_back(info);
 	}
 

@@ -50,6 +50,8 @@ set(PROG_SRC
     mainwindow.ui
     consolewatcher.cpp
     consolewatcher.h
+    v4l2camera.cpp
+    v4l2camera.h
     cameragrabber.cpp
     cameragrabber.h
     cameraslist.cpp

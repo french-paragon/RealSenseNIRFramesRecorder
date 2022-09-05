@@ -8,6 +8,8 @@
 
 #include "./imageframe.h"
 
+#include "./v4l2camera.h"
+
 namespace cv{
 	class Mat;
 }
@@ -25,6 +27,9 @@ public:
 	int opencvdeviceid() const;
 	void setOpenCvDeviceId(const int &devid);
 
+	V4L2Camera::Descriptor v4l2descr() const;
+	void setV4l2descr(const V4L2Camera::Descriptor &v4l2descr);
+
 	virtual void run();
 	void finish();
 
@@ -37,6 +42,8 @@ protected:
 
 	rs2::config _config;
 	int _opencv_dev_id;
+
+	V4L2Camera::Descriptor _v4l2descr;
 
 	QMutex _interruptionMutex;
 	bool _continue;

@@ -7,6 +7,7 @@
 CameraGrabber::CameraGrabber(QObject *parent) : QThread(parent)
 {
 	_opencv_dev_id = -1;
+	_v4l2descr = {"", -1};
 }
 
 rs2::config &CameraGrabber::config()
@@ -40,6 +41,16 @@ void CameraGrabber::setOpenCvDeviceId(const int &devid)
 	_opencv_dev_id = devid;
 }
 
+V4L2Camera::Descriptor CameraGrabber::v4l2descr() const
+{
+	return _v4l2descr;
+}
+
+void CameraGrabber::setV4l2descr(const V4L2Camera::Descriptor &v4l2descr)
+{
+	_v4l2descr = v4l2descr;
+}
+
 
 void CameraGrabber::run () {
 
@@ -47,7 +58,45 @@ void CameraGrabber::run () {
 	_continue = true;
 	_interruptionMutex.unlock();
 
-	if (_opencv_dev_id >= 0) {
+	if (_v4l2descr.index >= 0) {
+
+		V4L2Camera cam(_v4l2descr);
+
+		if (!cam.isValid()) {
+			emit acquisitionEndedWithError("Unable to open video device with v4l2");;
+			return;
+		}
+
+		bool ok = cam.start();
+
+		if (!ok) {
+			emit acquisitionEndedWithError("Unable to start streaming with v4l2 video device");;
+			return;
+		}
+
+		while (_continue) {
+			ok = cam.treatNextFrame([this, &cam] (Multidim::Array<uint8_t,3> & frame) {
+
+				ImageFrame left = ImageFrame();
+				ImageFrame right = ImageFrame();
+
+				ImageFrame rgb(&frame.atUnchecked(0,0,0),frame.shape(), frame.strides(), false);
+				if (!cam.colorSpace().isEmpty()) {
+					rgb.additionalInfos()[ImageFrame::colorSpaceKey] = cam.colorSpace();
+				}
+
+				Q_EMIT framesReady(left, right, rgb);
+			});
+
+			if (!ok) {
+				emit acquisitionEndedWithError("Unable to load frames with v4l2 video device");;
+				return;
+			}
+		}
+
+		cam.stop();
+
+	} else if (_opencv_dev_id >= 0) {
 
 		cv::Mat frame;
 		cv::VideoCapture cap;

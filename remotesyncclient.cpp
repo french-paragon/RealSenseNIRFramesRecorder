@@ -91,9 +91,7 @@ void RemoteSyncClient::treatAnswer() {
 	int space_pos = msg.indexOf(' ');
 
 	if (space_pos < 0) {
-		qDebug() << "space pos not found";
-		manageInvalidAnswer();
-		return;
+		space_pos = msg.size(); // the timestamp is all the message
 	}
 
 	QByteArray timestamp = msg.left(space_pos);
