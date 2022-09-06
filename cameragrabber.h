@@ -24,6 +24,10 @@ public:
 	rs2::config const& config() const;
 	void setConfig(const rs2::config &config);
 
+	V4L2Camera::Config& v4l2config();
+	V4L2Camera::Config const& v4l2config() const;
+	void setV4L2Config(const V4L2Camera::Config &config);
+
 	int opencvdeviceid() const;
 	void setOpenCvDeviceId(const int &devid);
 
@@ -43,6 +47,7 @@ protected:
 	rs2::config _config;
 	int _opencv_dev_id;
 
+	V4L2Camera::Config _v4l2config;
 	V4L2Camera::Descriptor _v4l2descr;
 
 	QMutex _interruptionMutex;

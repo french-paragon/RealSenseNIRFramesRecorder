@@ -31,6 +31,22 @@ void CameraGrabber::setConfig(const rs2::config &config)
 
 }
 
+V4L2Camera::Config& CameraGrabber::v4l2config() {
+	return _v4l2config;
+}
+V4L2Camera::Config const& CameraGrabber::v4l2config() const {
+	return _v4l2config;
+}
+void CameraGrabber::setV4L2Config(const V4L2Camera::Config &config) {
+	_v4l2config = config;
+
+	_v4l2config.frameSize.width = 3840;
+	_v4l2config.frameSize.height = 1080;
+
+	_v4l2config.fps.numerator=1;
+	_v4l2config.fps.denominator=30;
+}
+
 int CameraGrabber::opencvdeviceid() const
 {
 	return _opencv_dev_id;
@@ -67,7 +83,7 @@ void CameraGrabber::run () {
 			return;
 		}
 
-		bool ok = cam.start();
+		bool ok = cam.start(_v4l2config);
 
 		if (!ok) {
 			emit acquisitionEndedWithError("Unable to start streaming with v4l2 video device");;

@@ -135,19 +135,23 @@ V4L2Camera::~V4L2Camera() {
 	if (_n_buffers > 0) {
 
 		if (_mode == Stream) {
-			for (uint32_t i = 0; i < _n_buffers; i++) {
-				munmap(_buffers[i].start, _buffers[i].length);
-			}
+			deinit_streammode();
 		} else if (_mode == Copy) {
-			free(_buffers[0].start);
+			deinit_copymode();
 		}
 
-		free(_buffers);
 	}
 }
 
-bool V4L2Camera::start() {
+bool V4L2Camera::start(Config const& config) {
+
+
+
 	if (!isValid()) {
+		return false;
+	}
+
+	if (!setConfig(config)) {
 		return false;
 	}
 
@@ -209,6 +213,10 @@ bool V4L2Camera::stop() {
 		return false;
 	}
 
+	if (_mode == Copy) {
+		deinit_copymode();
+	}
+
 	if (_mode == Stream) {
 		bool ok = stop_streaming();
 
@@ -228,9 +236,6 @@ QString V4L2Camera::colorSpace() const {
 bool V4L2Camera::init() {
 
 	struct v4l2_capability cap;
-	struct v4l2_cropcap cropcap;
-	struct v4l2_crop crop;
-	struct v4l2_format fmt;
 
 	QTextStream err(stderr);
 
@@ -253,6 +258,16 @@ bool V4L2Camera::init() {
 	} else if (cap.capabilities & V4L2_CAP_READWRITE) {
 		_mode = Copy;
 	}
+
+	return true;
+}
+
+bool V4L2Camera::setConfig(Config const& config) {
+
+	struct v4l2_cropcap cropcap;
+	struct v4l2_crop crop;
+	struct v4l2_format fmt;
+	struct v4l2_streamparm parm;
 
 	/* Select video input, video standard and tune here. */
 
@@ -280,15 +295,43 @@ bool V4L2Camera::init() {
 
 
 	CLEAR(fmt);
+	CLEAR(parm);
 
 	fmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+	parm.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 
-	/* Preserve original settings as set by v4l2-ctl for example */
+	/* get original setting */
 	if (-1 == xioctl(_file_descriptor, VIDIOC_G_FMT, &fmt)) {
 		return false;
 	}
 
-	if (!init_viewArray(fmt.fmt.pix.height, fmt.fmt.pix.width, fmt.fmt.pix.colorspace, fmt.fmt.pix.pixelformat)) {
+	if (-1 == xioctl(_file_descriptor, VIDIOC_G_PARM, &parm)) {
+		return false;
+	}
+
+	if (config.pixelFormat.size() == 4) { //4bytes code
+
+		uint32_t formatCode = fmt.fmt.pix.pixelformat;
+		std::memcpy(&formatCode, config.pixelFormat.data(), 4);
+
+		fmt.fmt.pix.pixelformat = formatCode;
+	}
+
+	fmt.fmt.pix.width = config.frameSize.width;
+	fmt.fmt.pix.height = config.frameSize.height;
+
+	parm.parm.capture.timeperframe.numerator = config.fps.numerator;
+	parm.parm.capture.timeperframe.denominator = config.fps.denominator;
+
+	/* set configuration settings */
+	if (-1 == xioctl(_file_descriptor, VIDIOC_S_FMT, &fmt)) {
+		return false;
+	}
+	if (-1 == xioctl(_file_descriptor, VIDIOC_S_PARM, &parm)) {
+		return false;
+	}
+
+	if (!set_viewArray(fmt.fmt.pix.height, fmt.fmt.pix.width, fmt.fmt.pix.colorspace, fmt.fmt.pix.pixelformat)) {
 		return false;
 	}
 
@@ -320,6 +363,12 @@ bool V4L2Camera::init_copymode(int bufferSize) {
 	}
 
 	return true;
+}
+
+void V4L2Camera::deinit_copymode() {
+
+	free(_buffers[0].start);
+	free(_buffers);
 }
 
 bool V4L2Camera::init_streammode() {
@@ -385,7 +434,20 @@ bool V4L2Camera::init_streammode() {
 	return true;
 }
 
-bool V4L2Camera::init_viewArray(int height, int width, int colorSpaceCode, int colorFormat) {
+void V4L2Camera::deinit_streammode() {
+
+	if (_mode == Stream) {
+		for (uint32_t i = 0; i < _n_buffers; i++) {
+			munmap(_buffers[i].start, _buffers[i].length);
+		}
+	}
+
+	free(_buffers);
+	_n_buffers = 0;
+
+}
+
+bool V4L2Camera::set_viewArray(int height, int width, int colorSpaceCode, int colorFormat) {
 
 	QTextStream err(stderr);
 
@@ -453,6 +515,7 @@ bool V4L2Camera::start_streaming() {
 bool V4L2Camera::stop_streaming() {
 
 	if (_mode != Stream) {
+
 		return true;
 	}
 
@@ -467,6 +530,8 @@ bool V4L2Camera::stop_streaming() {
 			return false;
 		}
 	}
+
+	deinit_streammode();
 
 	return true;
 }

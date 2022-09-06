@@ -179,8 +179,10 @@ void CameraApplication::startRecording(int prow) {
 	} else {
 
 		V4L2Camera::Descriptor descr = {"v4l2", _lst->v4l2DeviceId(row)};
+		V4L2Camera::Config config;
 
 		_img_grab->setV4l2descr(descr);
+		_img_grab->setV4L2Config(config);
 	}
 
 	connect(_img_grab, &CameraGrabber::framesReady, this, &CameraApplication::receiveFrames, Qt::DirectConnection);
