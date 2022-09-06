@@ -4,6 +4,7 @@
 
 #include <QFile>
 #include <QTextStream>
+#include <QDebug>
 
 
 const QString ImageFrame::colorSpaceKey = "colorspace";
@@ -71,7 +72,7 @@ ImageFrame::ImageFrame(QString const& fileName) :
 
 			QByteArray line = infoFile.readLine();
 
-			while (line.isEmpty()) {
+			while (!line.isEmpty()) {
 
 				QString l = QString::fromLocal8Bit(line).trimmed();
 				QStringList lst = l.split(":");
