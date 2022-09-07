@@ -19,12 +19,13 @@ public:
 
 	bool isConnected() const;
 
-	void checkConnectionTime() const;
+	void checkConnectionTime();
 
 	void setSaveFolder(QString folder);
 	void startRecording(int cameraNum);
 	void saveImagesRecording(int nFrames);
 	void stopRecording();
+	void triggerExport();
 
 	QString getHost() const;
 	QString getDescr() const;
@@ -38,7 +39,7 @@ protected:
 	void collectData();
 	void treatAnswer();
 
-	void sendRequest(QByteArray type, QString msg = "") const;
+	void sendRequest(QByteArray type, QString msg = "");
 
 	void manageStartRecordActionAnswer(bool status_ok, QDateTime const& serverTime, QByteArray const& msg);
 	void manageSaveImagesActionAnswer(bool status_ok, QDateTime const& serverTime, QByteArray const& msg);
@@ -47,13 +48,14 @@ protected:
 	void manageTimeMeasureActionAnswer(bool status_ok, QDateTime const& serverTime, QByteArray const& msg);
 
 	void manageInvalidAnswer();
+	void manageFailingConnection();
 
 	QTcpSocket* _socket;
 
 	mutable QByteArray _previousRequestType;
 
-	QByteArray _messageBuffer;
-	int _messageBufferCurrentMessagePos;
+	mutable QByteArray _messageBuffer;
+	mutable int _messageBufferCurrentMessagePos;
 };
 
 #endif // REMOTESYNCCLIENT_H

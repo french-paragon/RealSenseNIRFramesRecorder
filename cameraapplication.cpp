@@ -25,7 +25,8 @@ CameraApplication* CameraApplication::GetCameraApp() {
 }
 
 CameraApplication::CameraApplication(int &argc, char **argv) :
-	QObject(nullptr)
+	QObject(nullptr),
+	_rs(nullptr)
 {
 	_isHeadLess = false;
 	_isServer = false;
@@ -64,6 +65,11 @@ CameraApplication::~CameraApplication() {
 	if (_mw != nullptr) {
 		delete _mw;
 	}
+
+	if (_rs != nullptr) {
+		delete _rs;
+	}
+
 	delete _QtApp;
 }
 
@@ -237,6 +243,16 @@ void CameraApplication::stopRecording() {
 	_img_grab = nullptr;
 }
 
+void CameraApplication::exportRecording() {
+
+	exportRecorded();
+
+	for (int i = 0; i < _remoteConnections->rowCount(); i++) {
+		_remoteConnections->getConnectionAtRow(i)->triggerExport();
+	}
+
+}
+
 void CameraApplication::exportRecorded() {
 
 	QTextStream out(stdout);
@@ -375,7 +391,7 @@ void CameraApplication::configureConsoleWatcher() {
 		connect(_cw, &ConsoleWatcher::startRecordSessionTriggered, this, &CameraApplication::startRecordSession);
 		connect(_cw, &ConsoleWatcher::saveImgsTriggered, this, &CameraApplication::saveFrames);
 		connect (_cw, &ConsoleWatcher::stopRecordTriggered, this, &CameraApplication::stopRecordSession);
-		connect (_cw, &ConsoleWatcher::exportRecordTriggered, this, &CameraApplication::exportRecorded);
+		connect (_cw, &ConsoleWatcher::exportRecordTriggered, this, &CameraApplication::exportRecording);
 
 		connect (_cw, &ConsoleWatcher::listCamerasTriggered, this, [this] () {
 			QTextStream out(stdout);
@@ -416,13 +432,20 @@ void CameraApplication::configureConsoleWatcher() {
 void CameraApplication::configureApplicationServer() {
 
 	if (_isServer) {
-		_rs = new RemoteSyncServer(this);
+		_serverThread = new QThread(this);
+		_serverThread->start();
 
-		connect(_rs, &RemoteSyncServer::setSaveFolder, this, &CameraApplication::setExportDir);
+		_rs = new RemoteSyncServer(nullptr);
+		_rs->moveToThread(_serverThread);
 
-		connect(_rs, &RemoteSyncServer::startRecording, this, &CameraApplication::startRecording);
-		connect(_rs, &RemoteSyncServer::saveImagesRecording, this, &CameraApplication::saveLocalFrames);
-		connect (_rs, &RemoteSyncServer::stopRecording, this, &CameraApplication::stopRecording);
+		connect(_rs, &RemoteSyncServer::setSaveFolder, this, &CameraApplication::setExportDir, Qt::QueuedConnection);
+
+		connect(_rs, &RemoteSyncServer::startRecording, this, &CameraApplication::startRecording, Qt::QueuedConnection);
+		connect(_rs, &RemoteSyncServer::saveImagesRecording, this, &CameraApplication::saveLocalFrames, Qt::QueuedConnection);
+		connect (_rs, &RemoteSyncServer::stopRecording, this, &CameraApplication::stopRecording, Qt::QueuedConnection);
+		connect (_rs, &RemoteSyncServer::exportRecorded, this, &CameraApplication::exportRecorded, Qt::QueuedConnection);
+
+		connect(this, &CameraApplication::serverAboutToStart, _rs, [this] () {
 
 		_rs->listen(QHostAddress::Any, RemoteSyncServer::preferredPort);
 
@@ -430,6 +453,10 @@ void CameraApplication::configureApplicationServer() {
 		out << "RealSense NIR Frame recorder - server mode" << "\n";
 		out << QDateTime::currentDateTime().toString() << "\n";
 		out << "Started listening on port " << _rs->serverPort() << endl;
+		},
+		Qt::QueuedConnection);
+
+		Q_EMIT serverAboutToStart();
 	}
 
 }

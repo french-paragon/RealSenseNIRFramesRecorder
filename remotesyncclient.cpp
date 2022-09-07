@@ -22,7 +22,12 @@ RemoteSyncClient::~RemoteSyncClient() {
 
 void RemoteSyncClient::collectData() {
 
-	while (_socket->bytesAvailable() > 0) {
+	while (true) {
+
+		bool ok = _socket->waitForReadyRead(10000);
+		if (!ok) {
+			manageFailingConnection();
+		}
 
 		QByteArray packet = _socket->read(RemoteConnectionManager::MaxMessageSize);
 
@@ -36,13 +41,17 @@ void RemoteSyncClient::collectData() {
 
 				treatAnswer();
 				_messageBuffer = _messageBuffer.mid(_messageBufferCurrentMessagePos+1);
-				_messageBufferCurrentMessagePos = -1;
+				_messageBufferCurrentMessagePos = 0;
+
+				return;
 
 			} else if (_messageBufferCurrentMessagePos == RemoteConnectionManager::MaxMessageSize-1) {
 
 				_messageBuffer = _messageBuffer.mid(_messageBufferCurrentMessagePos+1);
-				_messageBufferCurrentMessagePos = -1;
+				_messageBufferCurrentMessagePos = 0;
 				manageInvalidAnswer();
+
+				return;
 
 			}
 
@@ -135,7 +144,7 @@ bool RemoteSyncClient::connectToHost(QString server, quint16 port) {
 	_socket = new QTcpSocket(this);
 	_socket->connectToHost(server, port);
 
-	connect(_socket, &QIODevice::readyRead, this, &RemoteSyncClient::collectData);
+	//connect(_socket, &QIODevice::readyRead, this, &RemoteSyncClient::collectData);
 
 	connect(_socket, &QAbstractSocket::disconnected, this, &RemoteSyncClient::disconnectFromHost);
 	connect(_socket, &QObject::destroyed, this, &RemoteSyncClient::disconnectFromHost);
@@ -162,6 +171,7 @@ bool RemoteSyncClient::disconnectFromHost() {
 	if (_socket != nullptr) {
 
 		if (_socket->state() == QAbstractSocket::ConnectedState) {
+			_socket->disconnectFromHost();
 			ok = _socket->waitForDisconnected();
 		}
 
@@ -172,7 +182,7 @@ bool RemoteSyncClient::disconnectFromHost() {
 			err << "Error: " << _socket->error() << endl;
 		}
 
-		disconnect(_socket, &QIODevice::readyRead, this, &RemoteSyncClient::collectData);
+		//disconnect(_socket, &QIODevice::readyRead, this, &RemoteSyncClient::collectData);
 
 		disconnect(_socket, &QAbstractSocket::disconnected, this, &RemoteSyncClient::disconnectFromHost);
 		disconnect(_socket, &QObject::destroyed, this, &RemoteSyncClient::disconnectFromHost);
@@ -195,7 +205,7 @@ bool RemoteSyncClient::isConnected() const {
 	return false;
 }
 
-void RemoteSyncClient::checkConnectionTime() const {
+void RemoteSyncClient::checkConnectionTime() {
 
 	qDebug() << "checkConnectionTime requested  for " << _socket->peerName();
 
@@ -230,6 +240,11 @@ void RemoteSyncClient::stopRecording() {
 		sendRequest(RemoteConnectionManager::StopRecordActionCode);
 	}
 }
+void RemoteSyncClient::triggerExport() {
+	if (isConnected()) {
+		sendRequest(RemoteConnectionManager::ExportRecordActionCode);
+	}
+}
 
 QString RemoteSyncClient::getHost() const {
 	return _socket->peerName();
@@ -244,7 +259,7 @@ QString RemoteSyncClient::getDescr() const {
 }
 
 
-void RemoteSyncClient::sendRequest(QByteArray type, QString msg) const {
+void RemoteSyncClient::sendRequest(QByteArray type, QString msg) {
 
 	if (isConnected() and _previousRequestType.isEmpty()) {
 
@@ -272,6 +287,8 @@ void RemoteSyncClient::sendRequest(QByteArray type, QString msg) const {
 
 		_socket->write(req);
 		_socket->flush();
+
+		collectData();
 	}
 
 }
@@ -341,4 +358,12 @@ void RemoteSyncClient::manageTimeMeasureActionAnswer(bool status_ok, QDateTime c
 
 void RemoteSyncClient::manageInvalidAnswer() {
 
+}
+
+void RemoteSyncClient::manageFailingConnection() {
+
+	QTextStream out(stdout);
+	out << "Connection with " << getHost() << " failed, disconnecting !" << endl;
+
+	disconnectFromHost();
 }

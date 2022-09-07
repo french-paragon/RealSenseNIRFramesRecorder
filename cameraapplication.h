@@ -41,6 +41,7 @@ public:
 	void saveLocalFrames(int nFrames);
 	void stopRecordSession();
 	void stopRecording();
+	void exportRecording();
 	void exportRecorded();
 
 	void connectToRemote(QString host);
@@ -54,6 +55,8 @@ Q_SIGNALS:
 	void outFolderChanged(QString outFolder);
 	void triggerStopRecording();
 	void prefferedCameraChanged(int camRow);
+
+	void serverAboutToStart();
 
 protected:
 
@@ -87,6 +90,8 @@ protected:
 	MainWindow* _mw;
 	ConsoleWatcher* _cw;
 	RemoteSyncServer* _rs;
+
+	QThread* _serverThread;
 
 };
 

@@ -15,6 +15,7 @@ const QByteArray RemoteConnectionManager::SetSaveFolderActionCode = QByteArray("
 const QByteArray RemoteConnectionManager::StartRecordActionCode = QByteArray("strt",4); //start
 const QByteArray RemoteConnectionManager::SaveImgsActionCode = QByteArray("save",4); //save
 const QByteArray RemoteConnectionManager::StopRecordActionCode = QByteArray("stop",4); //stop
+const QByteArray RemoteConnectionManager::ExportRecordActionCode = QByteArray("xprt",4); //export
 const QByteArray RemoteConnectionManager::IsRecordingActionCode = QByteArray("ircd",4); //is recording
 const QByteArray RemoteConnectionManager::TimeMeasureActionCode = QByteArray("ttdm",4); //transit time delay measure
 
@@ -115,6 +116,11 @@ void RemoteConnectionManager::treatRequest() {
 		return;
 	}
 
+	if (actionCode == ExportRecordActionCode) {
+		manageExportRecordActionRequest(msg.mid(actionCodeBytes));
+		return;
+	}
+
 	if (actionCode == TimeMeasureActionCode) {
 		manageTimeMeasureActionRequest(msg.mid(actionCodeBytes));
 		return;
@@ -174,6 +180,16 @@ void RemoteConnectionManager::manageStopRecordActionRequest(QByteArray const& ms
 	sendAnswer(true);
 
 }
+
+void RemoteConnectionManager::manageExportRecordActionRequest(QByteArray const& msg) {
+
+	qDebug() << "Export recording action request received with message: " << msg;
+
+	Q_UNUSED(msg);
+	_server->exportRecorded();
+	sendAnswer(true);
+}
+
 void RemoteConnectionManager::manageTimeMeasureActionRequest(QByteArray const& msg) {
 
 	qDebug() << "Timing action request received with message: " << msg;

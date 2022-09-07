@@ -19,6 +19,7 @@ public:
 	static const QByteArray StartRecordActionCode;
 	static const QByteArray SaveImgsActionCode;
 	static const QByteArray StopRecordActionCode;
+	static const QByteArray ExportRecordActionCode;
 	static const QByteArray IsRecordingActionCode;
 	static const QByteArray TimeMeasureActionCode;
 
@@ -37,6 +38,7 @@ protected:
 	void manageStartRecordActionRequest(QByteArray const& msg);
 	void manageSaveImagesActionRequest(QByteArray const& msg);
 	void manageStopRecordActionRequest(QByteArray const& msg);
+	void manageExportRecordActionRequest(QByteArray const& msg);
 	void manageIsRecordingActionRequest(QByteArray const& msg);
 	void manageTimeMeasureActionRequest(QByteArray const& msg);
 
@@ -70,6 +72,7 @@ Q_SIGNALS:
 	void startRecording(int cameraNum);
 	void saveImagesRecording(int nFrames);
 	void stopRecording();
+	void exportRecorded();
 
 protected:
 
