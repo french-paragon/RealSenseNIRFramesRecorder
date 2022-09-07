@@ -26,7 +26,7 @@ void CameraGrabber::setConfig(const rs2::config &config)
 
 	_config.enable_stream(rs2_stream::RS2_STREAM_INFRARED, 1, 848, 480, rs2_format::RS2_FORMAT_Y8, 60);
 	_config.enable_stream(rs2_stream::RS2_STREAM_INFRARED, 2, 848, 480, rs2_format::RS2_FORMAT_Y8, 60);
-	_config.enable_stream(rs2_stream::RS2_STREAM_COLOR, -1, 848, 480, rs2_format::RS2_FORMAT_Y8, 60);
+	_config.enable_stream(rs2_stream::RS2_STREAM_COLOR, -1, 848, 480, rs2_format::RS2_FORMAT_RGB8, 60);
 	//_config.enable_all_streams();
 
 }
