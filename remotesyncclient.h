@@ -33,6 +33,11 @@ public:
 Q_SIGNALS:
 
 	void connection_terminated();
+	void timingInfoReceived(QString peerName,
+							QString peerAddr,
+							qint64 sent_ms,
+							qint64 server_ms,
+							qint64 now_ms);
 
 protected:
 

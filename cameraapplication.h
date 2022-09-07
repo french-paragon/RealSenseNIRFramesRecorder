@@ -8,6 +8,7 @@
 #include "./imageframe.h"
 
 class QCoreApplication;
+class QTimer;
 
 class MainWindow;
 class ConsoleWatcher;
@@ -60,12 +61,21 @@ Q_SIGNALS:
 
 protected:
 
+	void pingAll();
+
 	void receiveFrames(ImageFrame frameLeft, ImageFrame frameRight, ImageFrame frameRGB);
+
 	void configureMainWindow();
 	void configureConsoleWatcher();
 	void configureApplicationServer();
 
 	void manageAcquisitionError(QString txt);
+
+	void timingInfoReceived(QString peerName,
+							QString peerAddr,
+							qint64 sent_ms,
+							qint64 server_ms,
+							qint64 now_ms);
 
 	static CameraApplication* CurrentApp;
 
@@ -81,6 +91,8 @@ protected:
 	CameraGrabber* _img_grab;
 
 	RemoteConnectionList* _remoteConnections;
+	QFile* _sessionTimingFile;
+	QTimer* _pingTimer;
 
 	QMutex _saveAcessControl;
 

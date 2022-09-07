@@ -15,6 +15,7 @@
 #include <QTextStream>
 
 #include <QDebug>
+#include <QTimer>
 
 #include "LibStevi/imageProcessing/colorConversions.h"
 
@@ -26,6 +27,7 @@ CameraApplication* CameraApplication::GetCameraApp() {
 
 CameraApplication::CameraApplication(int &argc, char **argv) :
 	QObject(nullptr),
+	_sessionTimingFile(nullptr),
 	_rs(nullptr)
 {
 	_isHeadLess = false;
@@ -50,6 +52,7 @@ CameraApplication::CameraApplication(int &argc, char **argv) :
 	_lst->refreshCamerasList();
 
 	_remoteConnections = new RemoteConnectionList(this);
+	_pingTimer = new QTimer(this);
 
 	_imgsToSave = 0;
 
@@ -137,6 +140,30 @@ int CameraApplication::prefferedCamera() const {
 
 void CameraApplication::startRecordSession() {
 
+	if (_sessionTimingFile != nullptr) {
+		_sessionTimingFile->close();
+		_sessionTimingFile = nullptr;
+	}
+
+	QDateTime date = QDateTime::currentDateTimeUtc();
+	QString timestamp =date.toString("yyyy_MM_dd_hh_mm_ss_zzz");
+
+	QString sessionTimingFileName = _imgFolder.filePath("session_" + timestamp + "_timing_infos.csv");
+
+	_sessionTimingFile = new QFile(sessionTimingFileName);
+
+	if (!_sessionTimingFile->open(QIODevice::WriteOnly)) {
+		qDebug() << "Failed to create file" << sessionTimingFileName;
+		delete _sessionTimingFile;
+		_sessionTimingFile = nullptr;
+	} else {
+		QTextStream fStream(_sessionTimingFile);
+		fStream << "peerName" << " [ peer address ]," << "query_time_ms" << ',' << "server_time_ms" << ',' << "answer_time_ms" << endl;
+	}
+
+	connect(_pingTimer, &QTimer::timeout, this, &CameraApplication::pingAll);
+	_pingTimer->start(10000);
+
 	if (_lst->rowCount() > 0) {
 		startRecording(-1);
 	}
@@ -217,6 +244,14 @@ void CameraApplication::saveLocalFrames(int nFrames) {
 }
 
 void CameraApplication::stopRecordSession() {
+
+	if (_sessionTimingFile != nullptr) {
+		_sessionTimingFile->close();
+		_sessionTimingFile = nullptr;
+	}
+
+	disconnect(_pingTimer, &QTimer::timeout, this, &CameraApplication::pingAll);
+	_pingTimer->stop();
 
 	if (isRecording()) {
 		stopRecording();
@@ -319,6 +354,8 @@ void CameraApplication::connectToRemote(QString host) {
 	bool ok = remote->connectToHost(host, RemoteSyncServer::preferredPort);
 
 	if (ok) {
+		connect(remote, &RemoteSyncClient::timingInfoReceived,
+				this, &CameraApplication::timingInfoReceived);
 		_remoteConnections->addConnection(remote);
 	} else {
 		remote->deleteLater();
@@ -340,6 +377,13 @@ bool CameraApplication::isRecording() const {
 }
 bool CameraApplication::isRecordingToDisk() const {
 	return isRecording() and _imgsToSave;
+}
+
+void CameraApplication::pingAll() {
+	for (int i = 0; i < _remoteConnections->rowCount(); i++) {
+		RemoteSyncClient* connection = _remoteConnections->getConnectionAtRow(i);
+		connection->checkConnectionTime();
+	}
 }
 
 void CameraApplication::receiveFrames(ImageFrame frameLeft, ImageFrame frameRight, ImageFrame frameRGB) {
@@ -467,5 +511,30 @@ void CameraApplication::manageAcquisitionError(QString txt) {
 	} else {
 		QTextStream err(stderr);
 		err << txt << endl;
+	}
+}
+
+void CameraApplication::timingInfoReceived(QString peerName,
+						QString peerAddr,
+						qint64 sent_ms,
+						qint64 server_ms,
+						qint64 now_ms) {
+	if (_sessionTimingFile != nullptr) {
+		QTextStream fStream(_sessionTimingFile);
+		fStream << peerName << " [" << peerAddr << "], " << sent_ms << ',' << server_ms << ',' << now_ms << endl;
+	} else {
+
+
+		QTextStream out(stdout);
+
+		out << "Measure connection time answer received from "
+			<< peerName
+			<< " [" << peerAddr << "]"
+			<< "!\n\t";
+
+		out << "Submission time [ms] :" << sent_ms << "\n\t";
+		out << "Reception time [ms] :" << now_ms << "\n\t";
+		out << "time delta [ms] :" << (now_ms - sent_ms) << "\n\t";
+		out << "Server time [ms] :" << server_ms << endl;
 	}
 }

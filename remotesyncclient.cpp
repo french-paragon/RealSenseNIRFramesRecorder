@@ -334,7 +334,10 @@ void RemoteSyncClient::manageIsRecordingActionAnswer(bool status_ok, QDateTime c
 }
 void RemoteSyncClient::manageTimeMeasureActionAnswer(bool status_ok, QDateTime const& serverTime, QByteArray const& msg) {
 
-	qDebug() << "manageTimeMeasureAction answer received: " << msg;
+	qDebug() << "manageTimeMeasureAction answer received from "
+			 << _socket->peerName()
+			 << " [" << _socket->peerAddress().toString() << "]: "
+			 << msg;
 
 	qint64 now_ms = QDateTime::currentDateTimeUtc().currentMSecsSinceEpoch();
 
@@ -347,13 +350,13 @@ void RemoteSyncClient::manageTimeMeasureActionAnswer(bool status_ok, QDateTime c
 
 	qint64 server_ms = serverTime.toMSecsSinceEpoch();
 
-	QTextStream out(stdout);
-
-	out << "Measure connection time answer received! Status is : " << ((status_ok) ? "ok" : "error") << "\n\t";
-	out << "Submission time [ms] :" << sent_ms << "\n\t";
-	out << "Reception time [ms] :" << now_ms << "\n\t";
-	out << "time delta [ms] :" << (now_ms - sent_ms) << "\n\t";
-	out << "Server time [ms] :" << server_ms << endl;
+	if (status_ok) {
+		timingInfoReceived(_socket->peerName(),
+						   _socket->peerAddress().toString(),
+						   sent_ms,
+						   server_ms,
+						   now_ms);
+	}
 }
 
 void RemoteSyncClient::manageInvalidAnswer() {
