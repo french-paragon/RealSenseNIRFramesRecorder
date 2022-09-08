@@ -146,9 +146,6 @@ bool RemoteSyncClient::connectToHost(QString server, quint16 port) {
 
 	//connect(_socket, &QIODevice::readyRead, this, &RemoteSyncClient::collectData);
 
-	connect(_socket, &QAbstractSocket::disconnected, this, &RemoteSyncClient::disconnectFromHost);
-	connect(_socket, &QObject::destroyed, this, &RemoteSyncClient::disconnectFromHost);
-
 	bool ok = _socket->waitForConnected();
 
 	if (!ok) {
@@ -172,7 +169,11 @@ bool RemoteSyncClient::disconnectFromHost() {
 
 		if (_socket->state() == QAbstractSocket::ConnectedState) {
 			_socket->disconnectFromHost();
-			ok = _socket->waitForDisconnected();
+			if (_socket->state() != QAbstractSocket::UnconnectedState) {
+				ok = _socket->waitForDisconnected();
+			} else {
+				ok = true;
+			}
 		}
 
 		if (!ok) {
@@ -183,9 +184,6 @@ bool RemoteSyncClient::disconnectFromHost() {
 		}
 
 		//disconnect(_socket, &QIODevice::readyRead, this, &RemoteSyncClient::collectData);
-
-		disconnect(_socket, &QAbstractSocket::disconnected, this, &RemoteSyncClient::disconnectFromHost);
-		disconnect(_socket, &QObject::destroyed, this, &RemoteSyncClient::disconnectFromHost);
 
 		_socket->deleteLater();
 		_socket = nullptr;
