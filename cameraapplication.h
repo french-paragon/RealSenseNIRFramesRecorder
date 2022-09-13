@@ -4,6 +4,7 @@
 #include <QObject>
 #include <QMutex>
 #include <QDir>
+#include <QTemporaryDir>
 
 #include "./imageframe.h"
 
@@ -16,6 +17,9 @@ class CamerasList;
 class CameraGrabber;
 class RemoteSyncServer;
 class RemoteConnectionList;
+
+class libvlc_instance_t;
+class libvlc_media_player_t;
 
 class CameraApplication : public QObject
 {
@@ -39,6 +43,7 @@ public:
 	void startRecordSession();
 	void startRecording(int row);
 	void saveFrames(int nFrames);
+	void saveInterval(int nFrames, int msec);
 	void saveLocalFrames(int nFrames);
 	void stopRecordSession();
 	void stopRecording();
@@ -104,6 +109,11 @@ protected:
 	RemoteSyncServer* _rs;
 
 	QThread* _serverThread;
+
+	libvlc_instance_t * _vlc;
+	libvlc_media_player_t * _media_player;
+
+	QTemporaryDir _tmp_dir;
 
 };
 

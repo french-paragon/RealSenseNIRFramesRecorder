@@ -13,9 +13,12 @@
 #include <QDateTime>
 #include <QStandardPaths>
 #include <QTextStream>
+#include <QTimer>
+#include <QTemporaryDir>
 
 #include <QDebug>
-#include <QTimer>
+
+#include <vlc/vlc.h>
 
 #include "LibStevi/imageProcessing/colorConversions.h"
 
@@ -62,9 +65,27 @@ CameraApplication::CameraApplication(int &argc, char **argv) :
 	_mw = nullptr;
 
 	connect(this, &CameraApplication::triggerStopRecording, this, &CameraApplication::stopRecording, Qt::QueuedConnection);
+
+	_vlc = libvlc_new (0, NULL);
+
+	QString filePath = _tmp_dir.filePath("ding.wav");
+
+	QFile::copy(":/resources/ding.wav", filePath);
+
+	libvlc_media_t *m;
+	m = libvlc_media_new_path(_vlc, filePath.toStdString().c_str());
+
+	_media_player = libvlc_media_player_new_from_media (m);
+
+	libvlc_media_release (m);
+
 }
 
 CameraApplication::~CameraApplication() {
+
+	libvlc_media_player_release (_media_player);
+	libvlc_release (_vlc);
+
 	if (_mw != nullptr) {
 		delete _mw;
 	}
@@ -223,6 +244,7 @@ void CameraApplication::startRecording(int prow) {
 
 	_img_grab->start();
 }
+
 void CameraApplication::saveFrames(int nFrames) {
 
 	saveLocalFrames(nFrames);
@@ -230,6 +252,32 @@ void CameraApplication::saveFrames(int nFrames) {
 	for (int i = 0; i < _remoteConnections->rowCount(); i++) {
 		_remoteConnections->getConnectionAtRow(i)->saveImagesRecording(nFrames);
 	}
+}
+
+void CameraApplication::saveInterval(int nFrames, int msec) {
+
+	if (nFrames <= 0) {
+		return;
+	}
+
+	if (msec < 100) {
+		saveFrames(nFrames);
+		return;
+	}
+
+	libvlc_media_player_stop (_media_player);
+	libvlc_media_player_play (_media_player);
+
+	for (int i = 0; i < nFrames; i++) {
+
+		QThread::currentThread()->msleep(msec);
+
+		saveFrames(1);
+
+		libvlc_media_player_stop (_media_player);
+		libvlc_media_player_play (_media_player);
+	}
+
 }
 
 void CameraApplication::saveLocalFrames(int nFrames) {
@@ -434,6 +482,7 @@ void CameraApplication::configureConsoleWatcher() {
 		connect(_cw, &ConsoleWatcher::startRecordTriggered, this, &CameraApplication::startRecording);
 		connect(_cw, &ConsoleWatcher::startRecordSessionTriggered, this, &CameraApplication::startRecordSession);
 		connect(_cw, &ConsoleWatcher::saveImgsTriggered, this, &CameraApplication::saveFrames);
+		connect(_cw, &ConsoleWatcher::saveImgsIntervalTriggered, this, &CameraApplication::saveInterval);
 		connect (_cw, &ConsoleWatcher::stopRecordTriggered, this, &CameraApplication::stopRecordSession);
 		connect (_cw, &ConsoleWatcher::exportRecordTriggered, this, &CameraApplication::exportRecording);
 

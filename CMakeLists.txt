@@ -35,6 +35,7 @@ find_package( OpenCV REQUIRED )
 include_directories( ${OpenCV_INCLUDE_DIRS} )
 
 find_library(REALSENSE2_FOUND realsense2 HINTS ${LIBRARY_DIR} REQUIRED)
+find_library(LIBVLC_LIBRARY NAMES vlc libvlc HINTS ${LIBRARY_DIR} REQUIRED)
 
 add_subdirectory(modules)
 include_directories(modules)
@@ -61,7 +62,8 @@ set(PROG_SRC
     remotesyncserver.cpp
     remotesyncserver.h
     remotesyncclient.cpp
-    remotesyncclient.h)
+    remotesyncclient.h
+    ressources.qrc)
 
 if(ANDROID)
   add_library(RealSenseNirFramesRecorder SHARED
@@ -73,7 +75,7 @@ else()
   )
 endif()
 
-target_link_libraries(RealSenseNirFramesRecorder PRIVATE Qt${QT_VERSION_MAJOR}::Widgets Qt${QT_VERSION_MAJOR}::Network ${OpenCV_LIBS} realsense2 ${STEREOVISION_LIB})
+target_link_libraries(RealSenseNirFramesRecorder PRIVATE Qt${QT_VERSION_MAJOR}::Widgets Qt${QT_VERSION_MAJOR}::Network ${OpenCV_LIBS} realsense2 ${LIBVLC_LIBRARY} ${STEREOVISION_LIB})
 
 if (TARGET JPEG::JPEG)
     target_link_libraries(RealSenseNirFramesRecorder PRIVATE JPEG::JPEG)
