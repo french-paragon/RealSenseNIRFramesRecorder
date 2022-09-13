@@ -241,7 +241,7 @@ bool V4L2Camera::init() {
 
 	if (-1 == xioctl(_file_descriptor, VIDIOC_QUERYCAP, &cap)) {
 		if (EINVAL == errno) {
-			err << _descriptor.index << " " << _descriptor.name << " is not a valid V4L2 device" << Qt::endl;
+			err << _descriptor.index << " " << _descriptor.name << " is not a valid V4L2 device" << endl;
 			return false;
 		} else {
 			return false;
@@ -249,7 +249,7 @@ bool V4L2Camera::init() {
 	}
 
 	if (!(cap.capabilities & V4L2_CAP_VIDEO_CAPTURE)) {
-		err << _descriptor.index << " " << _descriptor.name << " is not a V4L2 capture device" << Qt::endl;
+		err << _descriptor.index << " " << _descriptor.name << " is not a V4L2 capture device" << endl;
 		return false;
 	}
 
@@ -385,7 +385,7 @@ bool V4L2Camera::init_streammode() {
 
 	if (-1 == xioctl(_file_descriptor, VIDIOC_REQBUFS, &req)) {
 		if (EINVAL == errno) {
-			err << _descriptor.index << " " << _descriptor.name << " does not support memory mapping" << Qt::endl;
+			err << _descriptor.index << " " << _descriptor.name << " does not support memory mapping" << endl;
 			return false;
 		} else {
 			return false;
@@ -401,7 +401,7 @@ bool V4L2Camera::init_streammode() {
 	_n_buffers = req.count;
 
 	if (!_buffers) {
-		err << "Out of memory" << Qt::endl;
+		err << "Out of memory" << endl;
 		return false;
 	}
 
@@ -452,7 +452,7 @@ bool V4L2Camera::set_viewArray(int height, int width, int colorSpaceCode, int co
 	QTextStream err(stderr);
 
 	if (colorSpaceCode == V4L2_COLORSPACE_JPEG) {
-		err << "Colorspace is jpg, which is not supported" << Qt::endl;
+		err << "Colorspace is jpg, which is not supported" << endl;
 	}
 
 	int c;
@@ -469,7 +469,7 @@ bool V4L2Camera::set_viewArray(int height, int width, int colorSpaceCode, int co
 	} else if (colorFormat == V4L2_PIX_FMT_ABGR32 or colorFormat == V4L2_PIX_FMT_ARGB32) {
 		c = 4;
 	} else {
-		err << "Color format " << colorFormatCode << " is not supported" << Qt::endl;
+		err << "Color format " << colorFormatCode << " is not supported" << endl;
 		return false;
 	}
 
