@@ -37,6 +37,8 @@ public:
 	virtual void run();
 	void finish();
 
+	void setInfraRedPatternOn(bool on);
+
 Q_SIGNALS:
 
 	void framesReady(ImageFrame frameLeft, ImageFrame frameRight, ImageFrame frameRGB);
@@ -45,6 +47,8 @@ Q_SIGNALS:
 protected:
 
 	rs2::config _config;
+	rs2::pipeline_profile _pipeline_profile;
+
 	int _opencv_dev_id;
 
 	V4L2Camera::Config _v4l2config;

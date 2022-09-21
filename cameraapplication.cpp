@@ -395,6 +395,20 @@ void CameraApplication::exportRecorded() {
 	}
 	out << "Exports done !" << endl;
 }
+void CameraApplication::setInfraRedPatternOnSession(bool on) {
+	setInfraRedPatternOn(on);
+}
+
+void CameraApplication::setInfraRedPatternOn(bool on) {
+
+	if (_img_grab != nullptr) {
+		_img_grab->setInfraRedPatternOn(on);
+	}
+
+	for (int i = 0; i < _remoteConnections->rowCount(); i++) {
+		_remoteConnections->getConnectionAtRow(i)->setInfraRedPatternOn(on);
+	}
+}
 
 void CameraApplication::connectToRemote(QString host) {
 
@@ -485,6 +499,7 @@ void CameraApplication::configureConsoleWatcher() {
 		connect(_cw, &ConsoleWatcher::saveImgsIntervalTriggered, this, &CameraApplication::saveInterval);
 		connect (_cw, &ConsoleWatcher::stopRecordTriggered, this, &CameraApplication::stopRecordSession);
 		connect (_cw, &ConsoleWatcher::exportRecordTriggered, this, &CameraApplication::exportRecording);
+		connect (_cw, &ConsoleWatcher::setIrPatternTriggered, this, &CameraApplication::setInfraRedPatternOnSession);
 
 		connect (_cw, &ConsoleWatcher::listCamerasTriggered, this, [this] () {
 			QTextStream out(stdout);
@@ -536,6 +551,7 @@ void CameraApplication::configureApplicationServer() {
 		connect(_rs, &RemoteSyncServer::startRecording, this, &CameraApplication::startRecording, Qt::QueuedConnection);
 		connect(_rs, &RemoteSyncServer::saveImagesRecording, this, &CameraApplication::saveLocalFrames, Qt::QueuedConnection);
 		connect (_rs, &RemoteSyncServer::stopRecording, this, &CameraApplication::stopRecording, Qt::QueuedConnection);
+		connect (_rs, &RemoteSyncServer::setInfraRedPatternOn, this, &CameraApplication::setInfraRedPatternOn, Qt::QueuedConnection);
 		connect (_rs, &RemoteSyncServer::exportRecorded, this, &CameraApplication::exportRecorded, Qt::QueuedConnection);
 
 		connect(this, &CameraApplication::serverAboutToStart, _rs, [this] () {

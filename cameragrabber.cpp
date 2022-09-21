@@ -4,7 +4,11 @@
 
 #include <opencv2/videoio.hpp>
 
-CameraGrabber::CameraGrabber(QObject *parent) : QThread(parent)
+#include <QDebug>
+
+CameraGrabber::CameraGrabber(QObject *parent) :
+	QThread(parent),
+	_pipeline_profile()
 {
 	_opencv_dev_id = -1;
 	_v4l2descr = {"", -1};
@@ -142,7 +146,7 @@ void CameraGrabber::run () {
 	} else {
 
 		rs2::pipeline pipe;
-		pipe.start(_config);
+		_pipeline_profile = pipe.start(_config);
 		rs2::frameset frames;
 
 		while (_continue) {
@@ -170,6 +174,35 @@ void CameraGrabber::run () {
 void CameraGrabber::finish() {
 	_interruptionMutex.lock();
 	_continue = false;
+	_pipeline_profile = rs2::pipeline_profile();
+	_interruptionMutex.unlock();
+}
+
+void CameraGrabber::setInfraRedPatternOn(bool on) {
+	_interruptionMutex.lock();
+	if (_pipeline_profile) {
+		rs2::device dev = _pipeline_profile.get_device();
+
+		auto depth_sensor = dev.first<rs2::depth_sensor>();
+
+		if (depth_sensor.supports(RS2_OPTION_EMITTER_ENABLED)) {
+
+			float value = (on) ? 1.f : 0.f;
+
+			qDebug() << "discrete value: " << value;
+			depth_sensor.set_option(RS2_OPTION_EMITTER_ENABLED, value);
+		}
+
+		if (depth_sensor.supports(RS2_OPTION_LASER_POWER))
+		{
+			// Query min and max values:
+			auto range = depth_sensor.get_option_range(RS2_OPTION_LASER_POWER);
+			float value = (on) ? range.max : 0.f;
+
+			qDebug() << "continuous value: " << value;
+			depth_sensor.set_option(RS2_OPTION_LASER_POWER, value);
+		}
+	}
 	_interruptionMutex.unlock();
 }
 

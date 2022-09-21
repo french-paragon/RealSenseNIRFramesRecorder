@@ -49,6 +49,8 @@ public:
 	void stopRecording();
 	void exportRecording();
 	void exportRecorded();
+	void setInfraRedPatternOnSession(bool on);
+	void setInfraRedPatternOn(bool on);
 
 	void connectToRemote(QString host);
 	void disconnectFromRemote(QString host);

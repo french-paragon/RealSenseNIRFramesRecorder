@@ -11,6 +11,7 @@ const QString ConsoleWatcher::record_cmd = "save";
 const QString ConsoleWatcher::record_interval_cmd = "saveinterval";
 const QString ConsoleWatcher::stop_record_cmd = "stop";
 const QString ConsoleWatcher::export_record_cmd = "export";
+const QString ConsoleWatcher::ir_toggle_cmd = "irpattern";
 const QString ConsoleWatcher::list_cams_cmd = "list";
 const QString ConsoleWatcher::list_connections_cmd = "remotes";
 const QString ConsoleWatcher::remote_connect_cmd = "connect";
@@ -147,6 +148,20 @@ void ConsoleWatcher::readCommand() {
 			Q_EMIT InvalidTriggered(line);
 		} else {
 			emit exportRecordTriggered();
+		}
+
+	} else if (cmd == ir_toggle_cmd) {
+
+		if (values.size() != 2) {
+			Q_EMIT InvalidTriggered(line);
+		} else {
+			if (values[1].toString().toLower() == "on") {
+				setIrPatternTriggered(true);
+			} else if (values[1].toString().toLower() == "off") {
+				setIrPatternTriggered(false);
+			} else {
+				Q_EMIT InvalidTriggered(line);
+			}
 		}
 
 	} else if (cmd == list_cams_cmd) {

@@ -19,6 +19,7 @@ public:
 	static const QString record_interval_cmd;
 	static const QString stop_record_cmd;
 	static const QString export_record_cmd;
+	static const QString ir_toggle_cmd;
 	static const QString list_cams_cmd;
 	static const QString list_connections_cmd;
 	static const QString remote_connect_cmd;
@@ -42,6 +43,7 @@ Q_SIGNALS:
 	void saveImgsIntervalTriggered(int nImgs, int msec);
 	void stopRecordTriggered();
 	void exportRecordTriggered();
+	void setIrPatternTriggered(bool on);
 	void listCamerasTriggered();
 	void listConnectionsTriggered();
 	void remoteConnectionTriggered(QString host);

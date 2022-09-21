@@ -15,6 +15,7 @@ const QByteArray RemoteConnectionManager::SetSaveFolderActionCode = QByteArray("
 const QByteArray RemoteConnectionManager::StartRecordActionCode = QByteArray("strt",4); //start
 const QByteArray RemoteConnectionManager::SaveImgsActionCode = QByteArray("save",4); //save
 const QByteArray RemoteConnectionManager::StopRecordActionCode = QByteArray("stop",4); //stop
+const QByteArray RemoteConnectionManager::IrPatternActionCode = QByteArray("irpt",4); //stop
 const QByteArray RemoteConnectionManager::ExportRecordActionCode = QByteArray("xprt",4); //export
 const QByteArray RemoteConnectionManager::IsRecordingActionCode = QByteArray("ircd",4); //is recording
 const QByteArray RemoteConnectionManager::TimeMeasureActionCode = QByteArray("ttdm",4); //transit time delay measure
@@ -178,6 +179,24 @@ void RemoteConnectionManager::manageStopRecordActionRequest(QByteArray const& ms
 	Q_UNUSED(msg);
 	_server->stopRecording();
 	sendAnswer(true);
+
+}
+
+void RemoteConnectionManager::manageInfraRedPatternActionRequest(QByteArray const& msg) {
+
+	QString data = QString::fromUtf8(msg);
+
+	qDebug() << "Infrared pattern action request received with message: " << msg;
+
+	if (data.toLower() == "on") {
+		_server->setInfraRedPatternOn(true);
+		sendAnswer(true);
+	} else if (data.toLower() == "off") {
+		_server->setInfraRedPatternOn(false);
+		sendAnswer(true);
+	} else {
+		sendAnswer(false);
+	}
 
 }
 
