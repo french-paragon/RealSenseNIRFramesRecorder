@@ -24,6 +24,8 @@ public:
 	void setSaveFolder(QString folder);
 	void startRecording(int cameraNum);
 	void saveImagesRecording(int nFrames);
+	void saveImagesRecording();
+	void stopSaveImagesRecording();
 	void setInfraRedPatternOn(bool on);
 	void stopRecording();
 	void triggerExport();

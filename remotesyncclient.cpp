@@ -233,6 +233,17 @@ void RemoteSyncClient::saveImagesRecording(int nFrames) {
 		sendRequest(RemoteConnectionManager::SaveImgsActionCode, QString("%1").arg(nFrames, 0, 10).toUtf8());
 	}
 }
+void RemoteSyncClient::saveImagesRecording() {
+	if (isConnected()) {
+		sendRequest(RemoteConnectionManager::SaveImgsActionCode, QString("c").toUtf8());
+	}
+}
+void RemoteSyncClient::stopSaveImagesRecording() {
+	if (isConnected()) {
+		sendRequest(RemoteConnectionManager::StopSaveImgsActionCode);
+	}
+}
+
 void RemoteSyncClient::setInfraRedPatternOn(bool on) {
 	if (isConnected()) {
 		sendRequest(RemoteConnectionManager::IrPatternActionCode, QString((on) ? "on" : "off").toUtf8());

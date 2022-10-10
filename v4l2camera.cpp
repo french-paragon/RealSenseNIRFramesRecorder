@@ -56,7 +56,8 @@ QVector<V4L2Camera::Descriptor> V4L2Camera::listAvailableCameras() {
 			continue;
 		}
 
-		int index = indexFile.readAll().toInt(&ok);
+		QString idxStr = QString::fromLocal8Bit(indexFile.readAll()).trimmed();
+		int index = idxStr.toInt(&ok);
 
 		indexFile.close();
 

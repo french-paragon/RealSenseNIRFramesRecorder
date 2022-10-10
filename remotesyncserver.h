@@ -18,6 +18,7 @@ public:
 	static const QByteArray SetSaveFolderActionCode;
 	static const QByteArray StartRecordActionCode;
 	static const QByteArray SaveImgsActionCode;
+	static const QByteArray StopSaveImgsActionCode;
 	static const QByteArray StopRecordActionCode;
 	static const QByteArray IrPatternActionCode;
 	static const QByteArray ExportRecordActionCode;
@@ -38,6 +39,7 @@ protected:
 	void manageSetSaveFolderActionRequest(QByteArray const& msg);
 	void manageStartRecordActionRequest(QByteArray const& msg);
 	void manageSaveImagesActionRequest(QByteArray const& msg);
+	void manageStopSaveImagesActionRequest(QByteArray const& msg);
 	void manageStopRecordActionRequest(QByteArray const& msg);
 	void manageInfraRedPatternActionRequest(QByteArray const& msg);
 	void manageExportRecordActionRequest(QByteArray const& msg);
@@ -73,6 +75,8 @@ Q_SIGNALS:
 	void setSaveFolder(QString folder);
 	void startRecording(int cameraNum);
 	void saveImagesRecording(int nFrames);
+	void saveImagesRecordingContinuous();
+	void stopSaveImagesRecording();
 	void stopRecording();
 	void setInfraRedPatternOn(bool on);
 	void exportRecorded();

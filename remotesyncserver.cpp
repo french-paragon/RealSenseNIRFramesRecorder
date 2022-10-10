@@ -14,6 +14,7 @@ const char RemoteConnectionManager::EndMsgSymbol = '\n';
 const QByteArray RemoteConnectionManager::SetSaveFolderActionCode = QByteArray("svfl",4); //save folder
 const QByteArray RemoteConnectionManager::StartRecordActionCode = QByteArray("strt",4); //start
 const QByteArray RemoteConnectionManager::SaveImgsActionCode = QByteArray("save",4); //save
+const QByteArray RemoteConnectionManager::StopSaveImgsActionCode = QByteArray("spsv",4); //save
 const QByteArray RemoteConnectionManager::StopRecordActionCode = QByteArray("stop",4); //stop
 const QByteArray RemoteConnectionManager::IrPatternActionCode = QByteArray("irpt",4); //ir pattern
 const QByteArray RemoteConnectionManager::ExportRecordActionCode = QByteArray("xprt",4); //export
@@ -112,6 +113,11 @@ void RemoteConnectionManager::treatRequest() {
 		return;
 	}
 
+	if (actionCode == StopSaveImgsActionCode) {
+		manageStopSaveImagesActionRequest(msg.mid(actionCodeBytes));
+		return;
+	}
+
 	if (actionCode == StopRecordActionCode) {
 		manageStopRecordActionRequest(msg.mid(actionCodeBytes));
 		return;
@@ -167,14 +173,32 @@ void RemoteConnectionManager::manageSaveImagesActionRequest(QByteArray const& ms
 	bool ok;
     int nFrames = data.toInt(&ok, 10);
 
-    qDebug() << "Frame save action request received with message: " << msg << " nFrames: " << nFrames << " status: " << ok;
+	if (!ok and (data.toLower() == "c")) { //continuous mode
+		ok = true;
+		nFrames = -1;
+	}
+
+	qDebug() << "Frame save action request received with message: " << msg << " nFrames: " << ((nFrames > 0) ? QString("%1").arg(nFrames) : "infinity") << " status: " << ok;
 
 	if (ok) {
-		_server->saveImagesRecording(nFrames);
+		if (nFrames > 0) {
+			_server->saveImagesRecording(nFrames);
+		} else {
+			_server->saveImagesRecordingContinuous();
+		}
 		sendAnswer(true);
 	} else {
 		sendAnswer(false);
 	}
+
+}
+void RemoteConnectionManager::manageStopSaveImagesActionRequest(QByteArray const& msg) {
+
+	qDebug() << "Stop saving images action request received with message: " << msg;
+
+	Q_UNUSED(msg);
+	_server->stopSaveImagesRecording();
+	sendAnswer(true);
 
 }
 void RemoteConnectionManager::manageStopRecordActionRequest(QByteArray const& msg) {

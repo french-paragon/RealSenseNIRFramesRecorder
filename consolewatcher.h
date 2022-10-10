@@ -16,6 +16,7 @@ public:
 	static const QString set_camera_cmd;
 	static const QString start_record_cmd;
 	static const QString record_cmd;
+	static const QString stop_save_cmd;
 	static const QString record_interval_cmd;
 	static const QString stop_record_cmd;
 	static const QString export_record_cmd;
@@ -40,6 +41,8 @@ Q_SIGNALS:
 	void startRecordSessionTriggered();
 	void startRecordTriggered(int camRow);
 	void saveImgsTriggered(int nImgs);
+	void saveImgsContinuousTriggered();
+	void stopSaveImgsTriggered();
 	void saveImgsIntervalTriggered(int nImgs, int msec);
 	void stopRecordTriggered();
 	void exportRecordTriggered();

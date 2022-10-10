@@ -31,6 +31,7 @@ CameraApplication* CameraApplication::GetCameraApp() {
 CameraApplication::CameraApplication(int &argc, char **argv) :
 	QObject(nullptr),
 	_sessionTimingFile(nullptr),
+	_saving_imgs(false),
 	_rs(nullptr)
 {
 	_isHeadLess = false;
@@ -183,7 +184,7 @@ void CameraApplication::startRecordSession() {
 	}
 
 	connect(_pingTimer, &QTimer::timeout, this, &CameraApplication::pingAll);
-	_pingTimer->start(10000);
+	_pingTimer->start(5000);
 
 	if (_lst->rowCount() > 0) {
 		startRecording(-1);
@@ -254,6 +255,26 @@ void CameraApplication::saveFrames(int nFrames) {
 	}
 }
 
+void CameraApplication::saveFrames() {
+
+	saveLocalFrames();
+
+	for (int i = 0; i < _remoteConnections->rowCount(); i++) {
+		_remoteConnections->getConnectionAtRow(i)->saveImagesRecording();
+	}
+
+}
+
+void CameraApplication::stopSaveFrames() {
+
+	stopSaveLocalFrames();
+
+	for (int i = 0; i < _remoteConnections->rowCount(); i++) {
+		_remoteConnections->getConnectionAtRow(i)->stopSaveImagesRecording();
+	}
+
+}
+
 void CameraApplication::saveInterval(int nFrames, int msec) {
 
 	if (nFrames <= 0) {
@@ -289,6 +310,20 @@ void CameraApplication::saveLocalFrames(int nFrames) {
 			_saveAcessControl.unlock();
 		}
 	}
+}
+void CameraApplication::saveLocalFrames() {
+	if (isRecording()) {
+		_saveAcessControl.lock();
+		_saving_imgs = true;
+		_saveAcessControl.unlock();
+	}
+}
+
+void CameraApplication::stopSaveLocalFrames() {
+	_saveAcessControl.lock();
+	_imgsToSave = 0;
+	_saving_imgs = false;
+	_saveAcessControl.unlock();
 }
 
 void CameraApplication::stopRecordSession() {
@@ -438,7 +473,7 @@ bool CameraApplication::isRecording() const {
 	return _img_grab != nullptr;
 }
 bool CameraApplication::isRecordingToDisk() const {
-	return isRecording() and _imgsToSave;
+	return isRecording() and (_imgsToSave > 0 or _saving_imgs);
 }
 
 void CameraApplication::pingAll() {
@@ -450,7 +485,7 @@ void CameraApplication::pingAll() {
 
 void CameraApplication::receiveFrames(ImageFrame frameLeft, ImageFrame frameRight, ImageFrame frameRGB) {
 
-	if (_imgsToSave > 0) {
+	if (_imgsToSave > 0 or _saving_imgs) {
 		QDateTime date = QDateTime::currentDateTimeUtc();
 		QString timestamp =date.toString("yyyy_MM_dd_hh_mm_ss_zzz");
 		QString leftFramePath = _imgFolder.filePath(timestamp + "_left.stevimg");
@@ -462,7 +497,9 @@ void CameraApplication::receiveFrames(ImageFrame frameLeft, ImageFrame frameRigh
 		frameRGB.save(rgbFramePath);
 
 		_saveAcessControl.lock();
-		_imgsToSave--;
+		if (_imgsToSave > 0) {
+			_imgsToSave--;
+		}
 		_saveAcessControl.unlock();
 
 	} else {
@@ -495,7 +532,9 @@ void CameraApplication::configureConsoleWatcher() {
 
 		connect(_cw, &ConsoleWatcher::startRecordTriggered, this, &CameraApplication::startRecording);
 		connect(_cw, &ConsoleWatcher::startRecordSessionTriggered, this, &CameraApplication::startRecordSession);
-		connect(_cw, &ConsoleWatcher::saveImgsTriggered, this, &CameraApplication::saveFrames);
+		connect(_cw, &ConsoleWatcher::saveImgsTriggered, this, static_cast<void(CameraApplication::*)(int)>(&CameraApplication::saveFrames));
+		connect(_cw, &ConsoleWatcher::saveImgsContinuousTriggered, this, static_cast<void(CameraApplication::*)()>(&CameraApplication::saveFrames));
+		connect(_cw, &ConsoleWatcher::stopSaveImgsTriggered, this, &CameraApplication::stopSaveFrames);
 		connect(_cw, &ConsoleWatcher::saveImgsIntervalTriggered, this, &CameraApplication::saveInterval);
 		connect (_cw, &ConsoleWatcher::stopRecordTriggered, this, &CameraApplication::stopRecordSession);
 		connect (_cw, &ConsoleWatcher::exportRecordTriggered, this, &CameraApplication::exportRecording);
@@ -549,7 +588,9 @@ void CameraApplication::configureApplicationServer() {
 		connect(_rs, &RemoteSyncServer::setSaveFolder, this, &CameraApplication::setExportDir, Qt::QueuedConnection);
 
 		connect(_rs, &RemoteSyncServer::startRecording, this, &CameraApplication::startRecording, Qt::QueuedConnection);
-		connect(_rs, &RemoteSyncServer::saveImagesRecording, this, &CameraApplication::saveLocalFrames, Qt::QueuedConnection);
+		connect(_rs, &RemoteSyncServer::saveImagesRecording, this, static_cast<void(CameraApplication::*)(int)>(&CameraApplication::saveLocalFrames), Qt::QueuedConnection);
+		connect(_rs, &RemoteSyncServer::saveImagesRecordingContinuous, this, static_cast<void(CameraApplication::*)()>(&CameraApplication::saveLocalFrames), Qt::QueuedConnection);
+		connect(_rs, &RemoteSyncServer::stopSaveImagesRecording, this, &CameraApplication::stopSaveLocalFrames, Qt::QueuedConnection);
 		connect (_rs, &RemoteSyncServer::stopRecording, this, &CameraApplication::stopRecording, Qt::QueuedConnection);
 		connect (_rs, &RemoteSyncServer::setInfraRedPatternOn, this, &CameraApplication::setInfraRedPatternOn, Qt::QueuedConnection);
 		connect (_rs, &RemoteSyncServer::exportRecorded, this, &CameraApplication::exportRecorded, Qt::QueuedConnection);

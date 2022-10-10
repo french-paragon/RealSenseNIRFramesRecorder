@@ -43,8 +43,12 @@ public:
 	void startRecordSession();
 	void startRecording(int row);
 	void saveFrames(int nFrames);
+	void saveFrames();
+	void stopSaveFrames();
 	void saveInterval(int nFrames, int msec);
 	void saveLocalFrames(int nFrames);
+	void saveLocalFrames();
+	void stopSaveLocalFrames();
 	void stopRecordSession();
 	void stopRecording();
 	void exportRecording();
@@ -105,6 +109,7 @@ protected:
 
 	QDir _imgFolder;
 	int _imgsToSave;
+	bool _saving_imgs;
 
 	MainWindow* _mw;
 	ConsoleWatcher* _cw;

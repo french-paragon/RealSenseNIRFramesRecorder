@@ -8,6 +8,7 @@ const QString ConsoleWatcher::set_folder_cmd = "output";
 const QString ConsoleWatcher::set_camera_cmd = "camera";
 const QString ConsoleWatcher::start_record_cmd = "start";
 const QString ConsoleWatcher::record_cmd = "save";
+const QString ConsoleWatcher::stop_save_cmd = "stopsave";
 const QString ConsoleWatcher::record_interval_cmd = "saveinterval";
 const QString ConsoleWatcher::stop_record_cmd = "stop";
 const QString ConsoleWatcher::export_record_cmd = "export";
@@ -96,7 +97,11 @@ void ConsoleWatcher::readCommand() {
 
 	} else if (cmd == record_cmd) {
 
-		if (values.size() != 2) {
+		if (values.size() == 1) {
+
+			emit saveImgsContinuousTriggered();
+
+		} else if (values.size() != 2) {
 			Q_EMIT InvalidTriggered(line);
 		} else {
 
@@ -108,8 +113,17 @@ void ConsoleWatcher::readCommand() {
 			if (!ok) {
 				nFrames = 0;
 			}
-
 			emit saveImgsTriggered(nFrames);
+		}
+
+	} else if (cmd == stop_save_cmd) {
+
+		if (values.size() == 1) {
+
+			emit stopSaveImgsTriggered();
+
+		} else {
+			Q_EMIT InvalidTriggered(line);
 		}
 
 	} else if (cmd == record_interval_cmd) {
