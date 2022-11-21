@@ -24,6 +24,7 @@ public:
 	static const QByteArray ExportRecordActionCode;
 	static const QByteArray IsRecordingActionCode;
 	static const QByteArray TimeMeasureActionCode;
+	static const QByteArray TimeSourceActionCode;
 
 	explicit RemoteConnectionManager(RemoteSyncServer* server, QTcpSocket* socket);
 
@@ -45,6 +46,7 @@ protected:
 	void manageExportRecordActionRequest(QByteArray const& msg);
 	void manageIsRecordingActionRequest(QByteArray const& msg);
 	void manageTimeMeasureActionRequest(QByteArray const& msg);
+	void manageTimeSourceActionRequest(QByteArray const& msg);
 
 	void manageInvalidRequest();
 
@@ -80,6 +82,7 @@ Q_SIGNALS:
 	void stopRecording();
 	void setInfraRedPatternOn(bool on);
 	void exportRecorded();
+	void setTimeSource(QString addr, quint16 port);
 
 protected:
 

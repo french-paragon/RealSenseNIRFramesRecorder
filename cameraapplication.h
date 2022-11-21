@@ -5,6 +5,7 @@
 #include <QMutex>
 #include <QDir>
 #include <QTemporaryDir>
+#include <QHostAddress>
 
 #include "./imageframe.h"
 
@@ -61,6 +62,28 @@ public:
 
 	bool isRecording() const;
 	bool isRecordingToDisk() const;
+
+	void configureTimeSource(QString addr,
+							 quint16 port = 5070);
+	void configureTimeSource(const QHostAddress &address,
+							 quint16 port = 5070,
+							 QAbstractSocket::BindMode mode = QAbstractSocket::ShareAddress);
+
+	void configureTimeSourceLocal(QString addr,
+							 quint16 port = 5070);
+	void configureTimeSourceLocal(const QHostAddress &address,
+							 quint16 port = 5070,
+							 QAbstractSocket::BindMode mode = QAbstractSocket::ShareAddress);
+
+	/*!
+	 * \brief getTimeMs return a time, in ms, from a given reference time (generally the unix epoch).
+	 * \return an integer time representing a certain number of milliseconds.
+	 *
+	 * By default the application read the system time,
+	 * but it can also be configured to get the time
+	 * from a time server over udp.
+	 */
+	qint64 getTimeMs() const;
 
 Q_SIGNALS:
 
@@ -121,6 +144,10 @@ protected:
 	libvlc_media_player_t * _media_player;
 
 	QTemporaryDir _tmp_dir;
+
+	QHostAddress _time_server_address;
+	quint16 _time_server_port;
+	QAbstractSocket::BindMode _time_server_bind_mode;
 
 };
 

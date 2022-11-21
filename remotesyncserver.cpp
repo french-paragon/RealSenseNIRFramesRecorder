@@ -20,6 +20,7 @@ const QByteArray RemoteConnectionManager::IrPatternActionCode = QByteArray("irpt
 const QByteArray RemoteConnectionManager::ExportRecordActionCode = QByteArray("xprt",4); //export
 const QByteArray RemoteConnectionManager::IsRecordingActionCode = QByteArray("ircd",4); //is recording
 const QByteArray RemoteConnectionManager::TimeMeasureActionCode = QByteArray("ttdm",4); //transit time delay measure
+const QByteArray RemoteConnectionManager::TimeSourceActionCode = QByteArray("tsst",4); //transit time delay measure
 
 RemoteConnectionManager::RemoteConnectionManager(RemoteSyncServer *server, QTcpSocket* socket) :
 	QObject(server),
@@ -138,6 +139,11 @@ void RemoteConnectionManager::treatRequest() {
 		return;
 	}
 
+	if (actionCode == TimeSourceActionCode) {
+		manageTimeSourceActionRequest(msg.mid(actionCodeBytes));
+		return;
+	}
+
 	// if request code not recognized
 	manageInvalidRequest();
 }
@@ -246,6 +252,41 @@ void RemoteConnectionManager::manageTimeMeasureActionRequest(QByteArray const& m
 
 	sendAnswer(true, ans);
 }
+
+void RemoteConnectionManager::manageTimeSourceActionRequest(QByteArray const& msg) {
+
+	qDebug() << "Time source request received with message: " << msg;
+
+	QString params = QString::fromUtf8(msg);
+
+	QStringList split = params.split(' ', QString::SplitBehavior::SkipEmptyParts);
+
+	if (split.size() != 2) {
+		sendAnswer(false);
+		return;
+	}
+
+	bool ok = true;
+	quint16 port = split[1].toUInt(&ok);
+
+	if (!ok) {
+		sendAnswer(false);
+		return;
+	}
+
+	QHostAddress addr(split[0]);
+
+	if (addr.isNull()) {
+		sendAnswer(false);
+		return;
+	}
+
+	_server->setTimeSource(split[0], port);
+
+	sendAnswer(true);
+
+}
+
 void RemoteConnectionManager::manageIsRecordingActionRequest(QByteArray const& msg) {
 	Q_UNUSED(msg);
 
@@ -265,8 +306,7 @@ void RemoteConnectionManager::sendAnswer(bool ok, QString msg) {
 	char code = (ok) ? 'y' : 'n';
 	QByteArray ans(&code,1);
 
-	QDateTime now = QDateTime::currentDateTimeUtc();
-	qint64 ms = now.currentMSecsSinceEpoch();
+	qint64 ms = CameraApplication::GetCameraApp()->getTimeMs();
 	ans += QString("%1").arg(ms, 0, 16).toUtf8();
 
 	QByteArray msgdata = msg.toUtf8();

@@ -26,6 +26,8 @@ public:
 	static const QString remote_connect_cmd;
 	static const QString remote_ping_cmd;
 	static const QString remote_disconnect_cmd;
+	static const QString time_cmd;
+	static const QString config_time_cmd;
 	static const QString help_cmd;
 
 	explicit ConsoleWatcher(QObject *parent = nullptr);
@@ -52,6 +54,8 @@ Q_SIGNALS:
 	void remoteConnectionTriggered(QString host);
 	void remotePingTriggered(int remoteRow);
 	void remoteDisconnectionTriggered(QString host);
+	void timeTriggered();
+	void configTimeTriggered(QString timeServerAddr, quint16 port);
 	void helpTriggered();
 	void InvalidTriggered(QString cmd);
 

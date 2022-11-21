@@ -29,6 +29,7 @@ public:
 	void setInfraRedPatternOn(bool on);
 	void stopRecording();
 	void triggerExport();
+	void setTimeSource(QString addr, quint16 port);
 
 	QString getHost() const;
 	QString getDescr() const;

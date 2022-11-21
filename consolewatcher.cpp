@@ -18,6 +18,8 @@ const QString ConsoleWatcher::list_connections_cmd = "remotes";
 const QString ConsoleWatcher::remote_connect_cmd = "connect";
 const QString ConsoleWatcher::remote_ping_cmd = "ping";
 const QString ConsoleWatcher::remote_disconnect_cmd = "disconnect";
+const QString ConsoleWatcher::time_cmd = "time";
+const QString ConsoleWatcher::config_time_cmd = "cfgtime";
 const QString ConsoleWatcher::help_cmd = "help";
 
 ConsoleWatcher::ConsoleWatcher(QObject *parent) :
@@ -224,6 +226,30 @@ void ConsoleWatcher::readCommand() {
 			Q_EMIT InvalidTriggered(line);
 		} else {
 			emit remoteDisconnectionTriggered(values[1].toString());
+		}
+
+	} else if (cmd == time_cmd) {
+
+		if (values.size() != 1) {
+			Q_EMIT InvalidTriggered(line);
+		} else {
+			emit timeTriggered();
+		}
+
+	} else if (cmd == config_time_cmd) {
+
+		if (values.size() != 3) {
+			Q_EMIT InvalidTriggered(line);
+		} else {
+
+			bool ok;
+			int port = values[2].toInt(&ok);
+
+			if (ok) {
+				emit configTimeTriggered(values[1].toString(), port);
+			} else {
+				Q_EMIT InvalidTriggered(line);
+			}
 		}
 
 	} else if (cmd == help_cmd) {

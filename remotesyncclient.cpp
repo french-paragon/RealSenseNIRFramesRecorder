@@ -259,6 +259,11 @@ void RemoteSyncClient::triggerExport() {
 		sendRequest(RemoteConnectionManager::ExportRecordActionCode);
 	}
 }
+void RemoteSyncClient::setTimeSource(QString addr, quint16 port) {
+	if (isConnected()) {
+		sendRequest(RemoteConnectionManager::TimeSourceActionCode, QString("%1 %2").arg(addr).arg(port));
+	}
+}
 
 QString RemoteSyncClient::getHost() const {
 	return _socket->peerName();

@@ -15,6 +15,7 @@
 #include <QTextStream>
 #include <QTimer>
 #include <QTemporaryDir>
+#include <QUdpSocket>
 
 #include <QDebug>
 
@@ -32,7 +33,8 @@ CameraApplication::CameraApplication(int &argc, char **argv) :
 	QObject(nullptr),
 	_sessionTimingFile(nullptr),
 	_saving_imgs(false),
-	_rs(nullptr)
+	_rs(nullptr),
+	_time_server_address()
 {
 	_isHeadLess = false;
 	_isServer = false;
@@ -476,6 +478,42 @@ bool CameraApplication::isRecordingToDisk() const {
 	return isRecording() and (_imgsToSave > 0 or _saving_imgs);
 }
 
+void CameraApplication::configureTimeSource(QString addr, quint16 port) {
+
+	configureTimeSourceLocal(addr, port);
+
+	for (int i = 0; i < _remoteConnections->rowCount(); i++) {
+		_remoteConnections->getConnectionAtRow(i)->setTimeSource(addr, port);
+	}
+}
+void CameraApplication::configureTimeSource(const QHostAddress &address,
+						 quint16 port,
+						 QAbstractSocket::BindMode mode) {
+
+	configureTimeSourceLocal(address, port, mode);
+
+	for (int i = 0; i < _remoteConnections->rowCount(); i++) {
+		_remoteConnections->getConnectionAtRow(i)->setTimeSource(address.toString(), port);
+	}
+
+}
+
+void CameraApplication::configureTimeSourceLocal(QString addr, quint16 port) {
+
+	_time_server_address = QHostAddress(addr);
+	_time_server_port = port;
+	_time_server_bind_mode = QAbstractSocket::ShareAddress;
+}
+void CameraApplication::configureTimeSourceLocal(const QHostAddress &address,
+						 quint16 port,
+						 QAbstractSocket::BindMode mode) {
+
+	_time_server_address = address;
+	_time_server_port = port;
+	_time_server_bind_mode = mode;
+
+}
+
 void CameraApplication::pingAll() {
 	for (int i = 0; i < _remoteConnections->rowCount(); i++) {
 		RemoteSyncClient* connection = _remoteConnections->getConnectionAtRow(i);
@@ -486,7 +524,7 @@ void CameraApplication::pingAll() {
 void CameraApplication::receiveFrames(ImageFrame frameLeft, ImageFrame frameRight, ImageFrame frameRGB) {
 
 	if (_imgsToSave > 0 or _saving_imgs) {
-		QDateTime date = QDateTime::currentDateTimeUtc();
+		QDateTime date = QDateTime::fromMSecsSinceEpoch(getTimeMs());
 		QString timestamp =date.toString("yyyy_MM_dd_hh_mm_ss_zzz");
 		QString leftFramePath = _imgFolder.filePath(timestamp + "_left.stevimg");
 		QString rightFramePath = _imgFolder.filePath(timestamp + "_right.stevimg");
@@ -571,6 +609,16 @@ void CameraApplication::configureConsoleWatcher() {
 			QString infos = QString("Invalid command entered:\n%1").arg(line);
 			manageAcquisitionError(infos);
 		});
+		connect(_cw, &ConsoleWatcher::timeTriggered, this, [this] () {
+			qint64 msApp = getTimeMs();
+
+			QDateTime now = QDateTime::currentDateTimeUtc();
+			qint64 msLocal = now.currentMSecsSinceEpoch();
+
+			qDebug() << "Application time: " << msApp << " Local time: " << msLocal;
+		});
+		connect(_cw, &ConsoleWatcher::configTimeTriggered, this,
+				static_cast<void(CameraApplication::*)(QString, quint16)>(&CameraApplication::configureTimeSource));
 
 		_cw->run();
 	}
@@ -594,6 +642,8 @@ void CameraApplication::configureApplicationServer() {
 		connect (_rs, &RemoteSyncServer::stopRecording, this, &CameraApplication::stopRecording, Qt::QueuedConnection);
 		connect (_rs, &RemoteSyncServer::setInfraRedPatternOn, this, &CameraApplication::setInfraRedPatternOn, Qt::QueuedConnection);
 		connect (_rs, &RemoteSyncServer::exportRecorded, this, &CameraApplication::exportRecorded, Qt::QueuedConnection);
+		connect (_rs, &RemoteSyncServer::setTimeSource, this,
+				 static_cast<void(CameraApplication::*)(QString, quint16)>(&CameraApplication::configureTimeSourceLocal), Qt::QueuedConnection);
 
 		connect(this, &CameraApplication::serverAboutToStart, _rs, [this] () {
 
@@ -643,4 +693,46 @@ void CameraApplication::timingInfoReceived(QString peerName,
 		out << "time delta [ms] :" << (now_ms - sent_ms) << "\n\t";
 		out << "Server time [ms] :" << server_ms << endl;
 	}
+}
+
+qint64 CameraApplication::getTimeMs() const {
+
+	if (!_time_server_address.isNull()) {
+
+		QUdpSocket udpSocket;
+		bool ok = udpSocket.bind(_time_server_address, _time_server_port, _time_server_bind_mode);
+
+		if (ok) {
+			udpSocket.waitForReadyRead(1000); //wait at most 3 ms
+
+			if (udpSocket.hasPendingDatagrams()) {
+				uint8_t data[sizeof (uint64_t)];
+
+				int n_read = udpSocket.readDatagram(reinterpret_cast<char*>(data), sizeof (uint64_t), nullptr, nullptr);
+
+				if (n_read == sizeof (uint64_t)) {
+					uint64_t n_ms = 0;
+
+					for (unsigned long i = 0; i < sizeof (uint64_t); i++) {
+						n_ms *= 256;
+						n_ms += data[sizeof (uint64_t)-i-1];
+					}
+
+					return n_ms;
+				} else {
+					qDebug() << "Net time wrong size";
+				}
+			} else {
+				qDebug() << "Net time timed out";
+			}
+		} else {
+			qDebug() << "Net time failed bind";
+		}
+
+	}
+
+	QDateTime now = QDateTime::currentDateTimeUtc();
+	qint64 ms = now.currentMSecsSinceEpoch();
+
+	return ms;
 }
