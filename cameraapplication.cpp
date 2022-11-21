@@ -117,6 +117,7 @@ bool CameraApplication::isHeadLess() const
 
 int CameraApplication::exec() {
 
+	configureSettings();
 	configureMainWindow();
 	configureConsoleWatcher();
 	configureApplicationServer();
@@ -546,6 +547,11 @@ void CameraApplication::receiveFrames(ImageFrame frameLeft, ImageFrame frameRigh
 		}
 	}
 
+}
+void CameraApplication::configureSettings() {
+	QCoreApplication::setOrganizationName("paragon");
+	QCoreApplication::setOrganizationDomain("paragon.ch");
+	QCoreApplication::setApplicationName("RealsenseNirFramesRecorder");
 }
 
 void CameraApplication::configureMainWindow() {

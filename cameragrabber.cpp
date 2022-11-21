@@ -5,6 +5,7 @@
 #include <opencv2/videoio.hpp>
 
 #include <QDebug>
+#include <QSettings>
 
 CameraGrabber::CameraGrabber(QObject *parent) :
 	QThread(parent),
@@ -28,9 +29,18 @@ void CameraGrabber::setConfig(const rs2::config &config)
 {
 	_config = config;
 
-	_config.enable_stream(rs2_stream::RS2_STREAM_INFRARED, 1, 848, 480, rs2_format::RS2_FORMAT_Y8, 60);
-	_config.enable_stream(rs2_stream::RS2_STREAM_INFRARED, 2, 848, 480, rs2_format::RS2_FORMAT_Y8, 60);
-	_config.enable_stream(rs2_stream::RS2_STREAM_COLOR, -1, 848, 480, rs2_format::RS2_FORMAT_RGB8, 60);
+	QSettings settings;
+	int fps = settings.value("realsense/fps", 30).toInt();
+	int width = settings.value("realsense/width", 848).toInt();
+	int height = settings.value("realsense/height", 480).toInt();
+
+	settings.setValue("realsense/fps", fps);
+	settings.setValue("realsense/width", width);
+	settings.setValue("realsense/height", height);
+
+	_config.enable_stream(rs2_stream::RS2_STREAM_INFRARED, 1, width, height, rs2_format::RS2_FORMAT_Y8, fps);
+	_config.enable_stream(rs2_stream::RS2_STREAM_INFRARED, 2, width, height, rs2_format::RS2_FORMAT_Y8, fps);
+	_config.enable_stream(rs2_stream::RS2_STREAM_COLOR, -1, width, height, rs2_format::RS2_FORMAT_RGB8, fps);
 	//_config.enable_all_streams();
 
 }
@@ -44,11 +54,20 @@ V4L2Camera::Config const& CameraGrabber::v4l2config() const {
 void CameraGrabber::setV4L2Config(const V4L2Camera::Config &config) {
 	_v4l2config = config;
 
-	_v4l2config.frameSize.width = 3840;
-	_v4l2config.frameSize.height = 1080;
+	QSettings settings;
+	int fps = settings.value("v4l2/fps", 30).toInt();
+	int width = settings.value("v4l2/width", 3840).toInt();
+	int height = settings.value("v4l2/height", 1080).toInt();
+
+	settings.setValue("v4l2/fps", fps);
+	settings.setValue("v4l2/width", width);
+	settings.setValue("v4l2/height", height);
+
+	_v4l2config.frameSize.width = width;
+	_v4l2config.frameSize.height = height;
 
 	_v4l2config.fps.numerator=1;
-	_v4l2config.fps.denominator=30;
+	_v4l2config.fps.denominator=fps;
 }
 
 int CameraGrabber::opencvdeviceid() const

@@ -99,6 +99,7 @@ protected:
 
 	void receiveFrames(ImageFrame frameLeft, ImageFrame frameRight, ImageFrame frameRGB);
 
+	void configureSettings();
 	void configureMainWindow();
 	void configureConsoleWatcher();
 	void configureApplicationServer();
