@@ -726,10 +726,10 @@ qint64 CameraApplication::getTimeMs() const {
 	if (!_time_server_address.isNull()) {
 
 		QUdpSocket udpSocket;
-		bool ok = udpSocket.bind(_time_server_address, _time_server_port, _time_server_bind_mode);
+		bool ok = udpSocket.bind(QHostAddress::AnyIPv4, _time_server_port, _time_server_bind_mode);
 
 		if (ok) {
-			udpSocket.waitForReadyRead(1000); //wait at most 3 ms
+			udpSocket.waitForReadyRead(3); //wait at most 3 ms
 
 			if (udpSocket.hasPendingDatagrams()) {
 				uint8_t data[sizeof (uint64_t)];
