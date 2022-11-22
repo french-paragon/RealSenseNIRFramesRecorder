@@ -39,6 +39,8 @@ CameraApplication::CameraApplication(int &argc, char **argv) :
 	_isHeadLess = false;
 	_isServer = false;
 
+	_batchFile = QString();
+
 	for (int i = 1; i < argc; i++) {
 		if (!qstrcmp(argv[i], "--headless")) {
 			_isHeadLess = true;
@@ -46,6 +48,13 @@ CameraApplication::CameraApplication(int &argc, char **argv) :
 
 		if (!qstrcmp(argv[i], "--server")) {
 			_isServer = true;
+		}
+
+		if (!qstrcmp(argv[i], "--batch")) {
+			i++;
+			if (i < argc) {
+				_batchFile = QString(argv[i]);
+			}
 		}
 	}
 
@@ -625,6 +634,10 @@ void CameraApplication::configureConsoleWatcher() {
 		});
 		connect(_cw, &ConsoleWatcher::configTimeTriggered, this,
 				static_cast<void(CameraApplication::*)(QString, quint16)>(&CameraApplication::configureTimeSource));
+
+		if (!_batchFile.isEmpty() and isHeadLess()) {
+			_cw->batchRun(_batchFile);
+		}
 
 		_cw->run();
 	}

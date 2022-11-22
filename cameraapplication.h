@@ -121,6 +121,8 @@ protected:
 	bool _isHeadLess;
 	bool _isServer;
 
+	QString _batchFile;
+
 	int _prefferedCamera;
 	CamerasList* _lst;
 	CameraGrabber* _img_grab;

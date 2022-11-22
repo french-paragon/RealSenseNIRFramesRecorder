@@ -28,9 +28,12 @@ public:
 	static const QString remote_disconnect_cmd;
 	static const QString time_cmd;
 	static const QString config_time_cmd;
+	static const QString batch_cmd;
 	static const QString help_cmd;
 
 	explicit ConsoleWatcher(QObject *parent = nullptr);
+
+	void batchRun(QString scriptPath);
 
 	void run();
 	void stop();
@@ -62,6 +65,7 @@ Q_SIGNALS:
 protected:
 
 	void readCommand();
+	void runCommand(QString line);
 	void printHelp();
 
 	bool isExit(QString cmd);

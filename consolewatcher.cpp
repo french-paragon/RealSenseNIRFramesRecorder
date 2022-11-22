@@ -1,6 +1,7 @@
 #include "consolewatcher.h"
 
 #include <QSocketNotifier>
+#include <QFile>
 #include <QDebug>
 
 const QString ConsoleWatcher::exit_cmd = "exit";
@@ -20,6 +21,7 @@ const QString ConsoleWatcher::remote_ping_cmd = "ping";
 const QString ConsoleWatcher::remote_disconnect_cmd = "disconnect";
 const QString ConsoleWatcher::time_cmd = "time";
 const QString ConsoleWatcher::config_time_cmd = "cfgtime";
+const QString ConsoleWatcher::batch_cmd = "batch";
 const QString ConsoleWatcher::help_cmd = "help";
 
 ConsoleWatcher::ConsoleWatcher(QObject *parent) :
@@ -28,6 +30,27 @@ ConsoleWatcher::ConsoleWatcher(QObject *parent) :
 	_in(stdin)
 {
 	_notifier = new QSocketNotifier(fileno(stdin), QSocketNotifier::Read, this);
+}
+
+void ConsoleWatcher::batchRun(QString scriptPath) {
+
+	QFile f(scriptPath);
+
+	if (!f.open(QIODevice::ReadOnly)) {
+		_out << "Failed to load batch file: " << scriptPath << "\n" << flush;
+		return;
+	}
+
+	QTextStream in(&f);
+
+	while (!in.atEnd()) {
+		QString cmd = in.readLine();
+
+		_out << ">" << cmd << "\n" << flush;
+
+		runCommand(cmd);
+	}
+	f.close();
 }
 
 void ConsoleWatcher::run() {
@@ -42,6 +65,10 @@ void ConsoleWatcher::stop() {
 void ConsoleWatcher::readCommand() {
 
 	QString line = _in.readLine();
+	runCommand(line);
+	_out << ">" << flush;
+}
+void ConsoleWatcher::runCommand(QString line) {
 
 	QVector<QStringRef> values = line.splitRef(' ', QString::SkipEmptyParts);
 	QString cmd = values[0].toString().trimmed().toLower();
@@ -252,6 +279,14 @@ void ConsoleWatcher::readCommand() {
 			}
 		}
 
+	} else if (cmd == batch_cmd) {
+
+		if (values.size() != 2) {
+			Q_EMIT InvalidTriggered(line);
+		} else {
+			batchRun(values[1].toString());
+		}
+
 	} else if (cmd == help_cmd) {
 
 		if (values.size() != 1) {
@@ -264,7 +299,6 @@ void ConsoleWatcher::readCommand() {
 		emit InvalidTriggered(line);
 	}
 
-	_out << ">" << flush;
 }
 
 bool ConsoleWatcher::isExit(QString cmd) {
