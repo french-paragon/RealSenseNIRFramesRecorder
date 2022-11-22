@@ -16,6 +16,7 @@
 #include <QTimer>
 #include <QTemporaryDir>
 #include <QUdpSocket>
+#include <QSettings>
 
 #include <QDebug>
 
@@ -36,6 +37,9 @@ CameraApplication::CameraApplication(int &argc, char **argv) :
 	_rs(nullptr),
 	_time_server_address()
 {
+
+	configureSettings();
+
 	_isHeadLess = false;
 	_isServer = false;
 
@@ -61,6 +65,11 @@ CameraApplication::CameraApplication(int &argc, char **argv) :
 	_img_grab = nullptr;
 
 	_imgFolder.setPath(QStandardPaths::standardLocations(QStandardPaths::PicturesLocation).first());
+
+	QSettings settings;
+
+	_imgFolder.setPath(settings.value("io/imagefolder", _imgFolder.absolutePath()).toString());
+	settings.setValue("io/imagefolder", _imgFolder.absolutePath());
 
 	_prefferedCamera = 0;
 	_lst = new CamerasList(this);
@@ -125,8 +134,6 @@ bool CameraApplication::isHeadLess() const
 
 
 int CameraApplication::exec() {
-
-	configureSettings();
 	configureMainWindow();
 	configureConsoleWatcher();
 	configureApplicationServer();
