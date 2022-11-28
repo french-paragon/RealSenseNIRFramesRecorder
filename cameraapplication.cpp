@@ -179,6 +179,15 @@ int CameraApplication::prefferedCamera() const {
 	return _prefferedCamera;
 }
 
+void CameraApplication::setUseTcpTimeSync(bool enable) {
+	QSettings settings;
+	settings.setValue("network/usetcptimesync", enable);
+}
+bool CameraApplication::useTcpTimeSync() const {
+	QSettings settings;
+	return settings.value("network/usetcptimesync", false).toBool();
+}
+
 void CameraApplication::startRecordSession() {
 
 	if (_sessionTimingFile != nullptr) {
@@ -191,19 +200,23 @@ void CameraApplication::startRecordSession() {
 
 	QString sessionTimingFileName = _imgFolder.filePath("session_" + timestamp + "_timing_infos.csv");
 
-	_sessionTimingFile = new QFile(sessionTimingFileName);
+	if (useTcpTimeSync()) {
 
-	if (!_sessionTimingFile->open(QIODevice::WriteOnly)) {
-		qDebug() << "Failed to create file" << sessionTimingFileName;
-		delete _sessionTimingFile;
-		_sessionTimingFile = nullptr;
-	} else {
-		QTextStream fStream(_sessionTimingFile);
-		fStream << "peerName" << " [ peer address ]," << "query_time_ms" << ',' << "server_time_ms" << ',' << "answer_time_ms" << endl;
+		_sessionTimingFile = new QFile(sessionTimingFileName);
+
+		if (!_sessionTimingFile->open(QIODevice::WriteOnly)) {
+			qDebug() << "Failed to create file" << sessionTimingFileName;
+			delete _sessionTimingFile;
+			_sessionTimingFile = nullptr;
+		} else {
+			QTextStream fStream(_sessionTimingFile);
+			fStream << "peerName" << " [ peer address ]," << "query_time_ms" << ',' << "server_time_ms" << ',' << "answer_time_ms" << endl;
+		}
+
+		connect(_pingTimer, &QTimer::timeout, this, &CameraApplication::pingAll);
+		_pingTimer->start(5000);
+
 	}
-
-	connect(_pingTimer, &QTimer::timeout, this, &CameraApplication::pingAll);
-	_pingTimer->start(5000);
 
 	if (_lst->rowCount() > 0) {
 		startRecording(-1);
@@ -599,6 +612,8 @@ void CameraApplication::configureConsoleWatcher() {
 		connect (_cw, &ConsoleWatcher::stopRecordTriggered, this, &CameraApplication::stopRecordSession);
 		connect (_cw, &ConsoleWatcher::exportRecordTriggered, this, &CameraApplication::exportRecording);
 		connect (_cw, &ConsoleWatcher::setIrPatternTriggered, this, &CameraApplication::setInfraRedPatternOnSession);
+		connect (_cw, &ConsoleWatcher::tcpTimingTriggered, this, &CameraApplication::setUseTcpTimeSync);
+		connect (_cw, &ConsoleWatcher::sleepTrigger, this, [this] (uint ms) { sleepms(ms); });
 
 		connect (_cw, &ConsoleWatcher::listCamerasTriggered, this, [this] () {
 			QTextStream out(stdout);
@@ -761,4 +776,13 @@ qint64 CameraApplication::getTimeMs() const {
 	qint64 ms = now.currentMSecsSinceEpoch();
 
 	return ms;
+}
+
+void CameraApplication::sleepms(uint ms, bool ringAfterSleep) {
+	QThread::currentThread()->msleep(ms);
+
+	if (ringAfterSleep) {
+		libvlc_media_player_stop (_media_player);
+		libvlc_media_player_play (_media_player);
+	}
 }

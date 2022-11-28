@@ -41,6 +41,9 @@ public:
 	void setPrefferedCamera(int preffered);
 	int prefferedCamera() const;
 
+	void setUseTcpTimeSync(bool enable);
+	bool useTcpTimeSync() const;
+
 	void startRecordSession();
 	void startRecording(int row);
 	void saveFrames(int nFrames);
@@ -84,6 +87,13 @@ public:
 	 * from a time server over udp.
 	 */
 	qint64 getTimeMs() const;
+
+	/*!
+	 * \brief sleepms sleep the current thread and possibly emit a sound when the sleep is over.
+	 * \param ms the approximate sleep duration, in ms.
+	 * \param ringAfterSleep should the application ding after the sleep (usefull when this function is used to delay a photo acquisition).
+	 */
+	void sleepms(uint ms, bool ringAfterSleep = true);
 
 Q_SIGNALS:
 

@@ -3,6 +3,7 @@
 #include <QSocketNotifier>
 #include <QFile>
 #include <QDebug>
+#include <QThread>
 
 const QString ConsoleWatcher::exit_cmd = "exit";
 const QString ConsoleWatcher::set_folder_cmd = "output";
@@ -22,6 +23,8 @@ const QString ConsoleWatcher::remote_disconnect_cmd = "disconnect";
 const QString ConsoleWatcher::time_cmd = "time";
 const QString ConsoleWatcher::config_time_cmd = "cfgtime";
 const QString ConsoleWatcher::batch_cmd = "batch";
+const QString ConsoleWatcher::tcp_timing_cmd = "tcptime";
+const QString ConsoleWatcher::wait_cmd = "wait";
 const QString ConsoleWatcher::help_cmd = "help";
 
 ConsoleWatcher::ConsoleWatcher(QObject *parent) :
@@ -285,6 +288,29 @@ void ConsoleWatcher::runCommand(QString line) {
 			Q_EMIT InvalidTriggered(line);
 		} else {
 			batchRun(values[1].toString());
+		}
+
+	} else if (cmd == tcp_timing_cmd) {
+
+		if (values.size() != 2) {
+			Q_EMIT InvalidTriggered(line);
+		} else {
+			tcpTimingTriggered(values[1].toString().toLower() == "enabled");
+		}
+
+	} else if (cmd == wait_cmd) {
+
+		if (values.size() != 2) {
+			Q_EMIT InvalidTriggered(line);
+		} else {
+			bool ok;
+			int ms = values[1].toInt(&ok);
+
+			if (!ok or ms <= 0) {
+				Q_EMIT InvalidTriggered(line);
+			} else {
+				sleepTrigger(ms);
+			}
 		}
 
 	} else if (cmd == help_cmd) {

@@ -29,6 +29,8 @@ public:
 	static const QString time_cmd;
 	static const QString config_time_cmd;
 	static const QString batch_cmd;
+	static const QString tcp_timing_cmd;
+	static const QString wait_cmd;
 	static const QString help_cmd;
 
 	explicit ConsoleWatcher(QObject *parent = nullptr);
@@ -59,6 +61,8 @@ Q_SIGNALS:
 	void remoteDisconnectionTriggered(QString host);
 	void timeTriggered();
 	void configTimeTriggered(QString timeServerAddr, quint16 port);
+	void tcpTimingTriggered(bool enabled);
+	void sleepTrigger(uint ms);
 	void helpTriggered();
 	void InvalidTriggered(QString cmd);
 
